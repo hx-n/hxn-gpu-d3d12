@@ -82,6 +82,17 @@ class Device {
 		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_graphics_pipeline(hxnRaw, vertex, pixel, signature == null ? null : signature.hxnRaw, format, topology, attributesBytes));
 	}
 
+	/** A shader-visible descriptor heap of `count` descriptors: texture views, or samplers. **/
+	public function createDescriptorHeap(kind:HeapKind, count:Int):DescriptorHeap
+		return DescriptorHeap.hxnAdopt(HxnGpuD3d12Native.device_create_descriptor_heap(hxnRaw, kind, count));
+
+	/**
+		Whether the device takes enhanced barriers (`CommandList.bufferBarrier`,
+		`textureBarrier`).
+	**/
+	public function supportsEnhancedBarriers():Bool
+		return HxnGpuD3d12Native.device_supports_enhanced_barriers(hxnRaw);
+
 	/** A direct command list and its allocator, open for recording. **/
 	public function createCommandList():CommandList
 		return CommandList.hxnAdopt(HxnGpuD3d12Native.device_create_command_list(hxnRaw));

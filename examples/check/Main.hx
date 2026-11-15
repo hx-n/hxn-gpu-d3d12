@@ -1,12 +1,15 @@
 import gpu.d3d12.*;
+import gpu.d3d12.Shaders as D3D12Shaders;
 import haxe.io.Bytes;
 import Shaders;
 
 /**
-	What CI runs: a compute shader over a buffer, and a render pass into a
-	texture, each copied to a readback buffer and checked, with the resource
-	transitions Direct3D 12 needs. It needs a Direct3D 12 adapter, WARP
-	included, and prints the same lines on every runtime.
+	What CI runs: a compute shader over a buffer, a render pass into a
+	texture, and a pass sampling a texture, each copied to a readback buffer
+	and checked, with the resource transitions Direct3D 12 needs; then the
+	compute pass again with enhanced barriers where the device takes them.
+	It needs a Direct3D 12 adapter, WARP included, and prints the same lines
+	on every runtime.
 **/
 class Main {
 	static function check(ok:Bool, message:String) {
@@ -34,18 +37,28 @@ class Main {
 			return;
 		}
 		// The compute pass completes in a callback from the Haxe event loop, after main
-		// returns, and the render pass runs from there.
-		compute(device, () -> {
+		// returns, and the other passes run from there.
+		compute(device, false, () -> {
 			render(device);
-			device.close();
-			factory.close();
+			textured(device);
+			if (device.supportsEnhancedBarriers())
+				compute(device, true, () -> {
+					device.close();
+					factory.close();
+				});
+			else {
+				Sys.println("enhanced barriers: not supported");
+				device.close();
+				factory.close();
+			}
 		});
 		Sys.println("compute: submitted");
 	}
 
-	static function compute(device:Device, next:() -> Void) {
-		var bytecode = device.compile(Tripled.HLSL, "compute_main", "cs_5_1");
-		var signature = device.createRootSignature(gpu.d3d12.Shaders.rootParameters(Tripled.HLSL_SLOTS, Tripled.LAYOUT));
+	static function compute(device:Device, enhanced:Bool, next:() -> Void) {
+		var bytecode = D3D12Shaders.bytecode(device, Tripled.dxil("compute_main"), Tripled.HLSL, "compute_main", "compute");
+		var layout = new RootLayout(Tripled.HLSL_SLOTS, Tripled.LAYOUT);
+		var signature = device.createRootSignature(layout.parameters);
 		var pipeline = device.createComputePipeline(bytecode, signature);
 		var count = 64;
 		var input = Bytes.alloc(count * 4);
@@ -56,21 +69,32 @@ class Main {
 		var readback = device.createBuffer(count * 4, Heap.Readback, 0, false);
 
 		var commands = device.createCommandList();
-		commands.transitionBuffer(data, State.Common, State.CopyDest);
+		if (enhanced)
+			commands.bufferBarrier(data, BarrierSync.None, Access.NoAccess, BarrierSync.Copy, Access.CopyDest);
+		else
+			commands.transitionBuffer(data, State.Common, State.CopyDest);
 		commands.copyBuffer(data, upload);
-		commands.transitionBuffer(data, State.CopyDest, State.UnorderedAccess);
+		if (enhanced)
+			commands.bufferBarrier(data, BarrierSync.Copy, Access.CopyDest, BarrierSync.ComputeShading, Access.UnorderedAccess);
+		else
+			commands.transitionBuffer(data, State.CopyDest, State.UnorderedAccess);
 		commands.setComputeRootSignature(signature);
 		commands.setPipelineState(pipeline);
-		commands.setComputeRootBuffer(gpu.d3d12.Shaders.rootIndex(Tripled.HLSL_SLOTS, Tripled.BUFFER_data_GROUP, Tripled.BUFFER_data),
-			ParameterKind.UnorderedAccess, data);
+		commands.setComputeRootBuffer(layout.buffer(Tripled.BUFFER_data_GROUP, Tripled.BUFFER_data), ParameterKind.UnorderedAccess, data);
 		commands.dispatch(Std.int(count / Tripled.ENTRY_POINTS[0].workgroup[0]), 1, 1);
-		commands.transitionBuffer(data, State.UnorderedAccess, State.CopySource);
+		if (enhanced)
+			commands.bufferBarrier(data, BarrierSync.ComputeShading, Access.UnorderedAccess, BarrierSync.Copy, Access.CopySource);
+		else
+			commands.transitionBuffer(data, State.UnorderedAccess, State.CopySource);
 		commands.copyBuffer(readback, data);
 		device.execute(commands).then(_ -> {
 			var output = readback.read(0, count * 4);
 			for (i in 0...count)
 				check(output.getInt32(i * 4) == i * 3 + 1, 'value $i is ${output.getInt32(i * 4)}, not ${i * 3 + 1}');
-			Sys.println('compute: $count values tripled plus one, the last ${output.getInt32((count - 1) * 4)}');
+			if (enhanced)
+				Sys.println('enhanced barriers: $count values tripled plus one');
+			else
+				Sys.println('compute: $count values tripled plus one, the last ${output.getInt32((count - 1) * 4)}');
 			closeAll([commands, readback, data, upload, pipeline, signature]);
 			next();
 		}, e -> {
@@ -79,16 +103,33 @@ class Main {
 		});
 	}
 
-	static function render(device:Device) {
-		var vertex = device.compile(Tinted.HLSL, "vertex_main", "vs_5_1");
-		var pixel = device.compile(Tinted.HLSL, "fragment_main", "ps_5_1");
-		var signature = device.createRootSignature(gpu.d3d12.Shaders.rootParameters(Tinted.HLSL_SLOTS, Tinted.LAYOUT));
-		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip,
-			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0}]);
-		var size = 4;
-		var target = device.createTexture({width: size, height: size, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget});
+	/** Reads a 4x4 Rgba8 target back, and checks every pixel is `expected`. **/
+	static function readTarget(device:Device, commands:CommandList, target:Texture, expected:Array<Int>, label:String) {
+		var size = target.width();
 		var pitch = target.copyPitch();
 		var readback = device.createBuffer(pitch * size, Heap.Readback, 0, false);
+		commands.transitionTexture(target, State.RenderTarget, State.CopySource);
+		commands.copyTextureToBuffer(target, readback);
+		device.executeAndWait(commands);
+		var pixels = readback.read(0, pitch * size);
+		for (y in 0...size)
+			for (x in 0...size)
+				for (c in 0...4) {
+					var at = y * pitch + x * 4 + c;
+					check(pixels.get(at) == expected[c], '$label: pixel $x,$y channel $c is ${pixels.get(at)}, not ${expected[c]}');
+				}
+		Sys.println('$label: ${size}x$size pixels of ${[for (c in 0...4) pixels.get(c)].join(", ")}');
+		readback.close();
+	}
+
+	static function render(device:Device) {
+		var vertex = D3D12Shaders.bytecode(device, Tinted.dxil("vertex_main"), Tinted.HLSL, "vertex_main", "vertex");
+		var pixel = D3D12Shaders.bytecode(device, Tinted.dxil("fragment_main"), Tinted.HLSL, "fragment_main", "fragment");
+		var layout = new RootLayout(Tinted.HLSL_SLOTS, Tinted.LAYOUT);
+		var signature = device.createRootSignature(layout.parameters);
+		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip,
+			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0}]);
+		var target = device.createTexture({width: 4, height: 4, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget});
 
 		var quad = Bytes.alloc(4 * 8);
 		var corners = [-1.0, -1.0, 1.0, -1.0, -1.0, 1.0, 1.0, 1.0];
@@ -106,25 +147,66 @@ class Main {
 		commands.setRenderTarget(target, 0, 0, 0, 0);
 		commands.setGraphicsRootSignature(signature);
 		commands.setPipelineState(pipeline);
-		commands.setGraphicsRootBuffer(gpu.d3d12.Shaders.rootIndex(Tinted.HLSL_SLOTS, Tinted.PARAMS_GROUP, Tinted.PARAMS_BINDING),
-			ParameterKind.ConstantBuffer, uniforms);
+		commands.setGraphicsRootBuffer(layout.buffer(Tinted.PARAMS_GROUP, Tinted.PARAMS_BINDING), ParameterKind.ConstantBuffer, uniforms);
 		commands.setTopology(Topology.TriangleStrip);
 		commands.setVertexBuffer(0, positions, 8);
 		commands.draw(4, 1, 0);
-		// The rendered texture, moved for the copy into the readback buffer.
-		commands.transitionTexture(target, State.RenderTarget, State.CopySource);
-		commands.copyTextureToBuffer(target, readback);
-		device.executeAndWait(commands);
+		readTarget(device, commands, target, [for (c in tint) Math.round(c * 255)], "render");
+		closeAll([commands, uniforms, positions, target, pipeline, signature]);
+	}
 
-		var pixels = readback.read(0, pitch * size);
-		var expected = [for (c in tint) Math.round(c * 255)];
-		for (y in 0...size)
-			for (x in 0...size)
-				for (c in 0...4) {
-					var at = y * pitch + x * 4 + c;
-					check(pixels.get(at) == expected[c], 'pixel $x,$y channel $c is ${pixels.get(at)}, not ${expected[c]}');
-				}
-		Sys.println('render: ${size}x$size pixels of ${[for (c in 0...4) pixels.get(c)].join(", ")}');
-		closeAll([commands, uniforms, positions, readback, target, pipeline, signature]);
+	static function textured(device:Device) {
+		var vertex = D3D12Shaders.bytecode(device, Textured.dxil("vertex_main"), Textured.HLSL, "vertex_main", "vertex");
+		var pixel = D3D12Shaders.bytecode(device, Textured.dxil("fragment_main"), Textured.HLSL, "fragment_main", "fragment");
+		var layout = new RootLayout(Textured.HLSL_SLOTS, Textured.LAYOUT);
+		var signature = device.createRootSignature(layout.parameters);
+		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip, [
+			{location: Textured.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0},
+			{location: Textured.INPUT_uv, slot: 0, format: Format.Rg32Float, offset: 8}
+		]);
+
+		// A 2x2 image of one color, uploaded through a buffer with Direct3D 12's row pitch.
+		var color = [40, 80, 120, 255];
+		var image = device.createTexture({width: 2, height: 2, format: Format.Rgba8Unorm, usage: 0});
+		var pixels = Bytes.alloc(image.copyPitch() * 2);
+		for (y in 0...2)
+			for (x in 0...2)
+				for (c in 0...4)
+					pixels.set(y * image.copyPitch() + x * 4 + c, color[c]);
+		var staging = device.createBufferWith(pixels);
+
+		var group = Textured.TEXTURE_image_GROUP;
+		var resources = device.createDescriptorHeap(HeapKind.Resources, layout.textureCount(group));
+		resources.writeTexture(layout.textureOffset(group, Textured.TEXTURE_image), image);
+		var samplers = device.createDescriptorHeap(HeapKind.Samplers, 1);
+		samplers.writeSampler(0, Filter.Nearest, AddressMode.Clamp);
+		// The image's sampler, the next binding, is descriptor 0 of the sampler heap.
+		var indices = device.createBufferWith(RootLayout.samplerIndexArray([Textured.TEXTURE_image + 1 => 0]));
+
+		var quad = Bytes.alloc(4 * 16);
+		var corners = [-1.0, -1.0, 0, 1, 1.0, -1.0, 1, 1, -1.0, 1.0, 0, 0, 1.0, 1.0, 1, 0];
+		for (i in 0...corners.length)
+			quad.setFloat(i * 4, corners[i]);
+		var vertices = device.createBufferWith(quad);
+		var target = device.createTexture({width: 4, height: 4, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget});
+
+		var commands = device.createCommandList();
+		commands.transitionTexture(image, State.Common, State.CopyDest);
+		commands.copyBufferToTexture(image, staging);
+		commands.transitionTexture(image, State.CopyDest, State.PixelShaderResource);
+		commands.transitionTexture(target, State.Common, State.RenderTarget);
+		commands.setRenderTarget(target, 0, 0, 0, 0);
+		commands.setGraphicsRootSignature(signature);
+		commands.setPipelineState(pipeline);
+		commands.setDescriptorHeaps(resources, samplers);
+		commands.setGraphicsRootTable(layout.textureTable(group), resources, 0);
+		commands.setGraphicsRootTable(layout.samplerHeap, samplers, 0);
+		commands.setGraphicsRootTable(layout.comparisonSamplerHeap, samplers, 0);
+		commands.setGraphicsRootBuffer(layout.samplerIndices(group), ParameterKind.ShaderResource, indices);
+		commands.setTopology(Topology.TriangleStrip);
+		commands.setVertexBuffer(0, vertices, 16);
+		commands.draw(4, 1, 0);
+		readTarget(device, commands, target, color, "textured");
+		closeAll([commands, target, vertices, indices, samplers, resources, staging, image, pipeline, signature]);
 	}
 }

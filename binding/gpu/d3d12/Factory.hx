@@ -26,6 +26,13 @@ class Factory {
 	public function isSoftware(index:Int):Bool
 		return HxnGpuD3d12Native.factory_is_software(hxnRaw, index);
 
+	/**
+		A flip-model swap chain of `count` buffers on the window `window` (an `HWND`, which
+		hxn-window's `raw(0)` gives on Win32), presented by `device`'s queue.
+	**/
+	public function createSwapchain(device:Device, window:haxe.Int64, width:Int, height:Int, format:Format, count:Int):Swapchain
+		return Swapchain.hxnAdopt(HxnGpuD3d12Native.factory_create_swapchain(hxnRaw, device == null ? null : device.hxnRaw, window, width, height, format, count));
+
 	/** A device on adapter `index`, at feature level 11.0, with one direct queue. **/
 	public function createDevice(index:Int):Device
 		return Device.hxnAdopt(HxnGpuD3d12Native.factory_create_device(hxnRaw, index));

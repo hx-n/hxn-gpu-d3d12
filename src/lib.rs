@@ -10,7 +10,7 @@ use std::mem::ManuallyDrop;
 use std::sync::{Arc, Mutex};
 
 use hxn_future::Future;
-use windows::Win32::Foundation::{HANDLE, RECT};
+use windows::Win32::Foundation::{HANDLE, HWND, RECT};
 use windows::Win32::Graphics::Direct3D::Fxc::{D3DCOMPILE_OPTIMIZATION_LEVEL3, D3DCompile};
 use windows::Win32::Graphics::Direct3D::*;
 use windows::Win32::Graphics::Direct3D12::*;
@@ -131,10 +131,12 @@ pub struct TextureDescriptor {
     pub usage: i32,
 }
 
-/// A root parameter's kind: a root descriptor for a buffer. Direct3D 12's values.
+/// A root parameter's kind: a descriptor table, or a root descriptor for a buffer.
+/// Direct3D 12's values.
 #[hxn::data]
 #[derive(Clone, Copy)]
 pub enum ParameterKind {
+    DescriptorTable = 0,
     ConstantBuffer = 2,
     ShaderResource = 3,
     UnorderedAccess = 4,
@@ -148,13 +150,109 @@ pub enum Visibility {
     Pixel = 5,
 }
 
-/// One root descriptor: `register` and `space` are hxnsl's `HLSL_SLOTS` ones.
+/// What a descriptor range holds. Direct3D 12's values.
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum RangeKind {
+    ShaderResource = 0,
+    UnorderedAccess = 1,
+    ConstantBuffer = 2,
+    Sampler = 3,
+}
+
+/// `count` descriptors from register `register` of `space`, `offset` descriptors into the
+/// table.
+#[hxn::data]
+pub struct RootRange {
+    pub kind: RangeKind,
+    pub count: i32,
+    pub register: i32,
+    pub space: i32,
+    pub offset: i32,
+}
+
+/// One root parameter: a root descriptor at `register` and `space` (hxnsl's `HLSL_SLOTS`), or a
+/// descriptor table of `ranges`.
 #[hxn::data]
 pub struct RootParameter {
     pub kind: ParameterKind,
     pub register: i32,
     pub space: i32,
     pub visibility: Visibility,
+    pub ranges: Vec<RootRange>,
+}
+
+/// A shader-visible descriptor heap's kind.
+#[hxn::data]
+#[derive(Clone, Copy, PartialEq)]
+pub enum HeapKind {
+    Resources = 0,
+    Samplers = 1,
+}
+
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum Filter {
+    Nearest = 0,
+    Linear = 21,
+}
+
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum AddressMode {
+    Wrap = 1,
+    Mirror = 2,
+    Clamp = 3,
+}
+
+/// Enhanced barrier sync bits, Direct3D 12's values, or-ed together.
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum BarrierSync {
+    None = 0,
+    All = 1,
+    Draw = 2,
+    IndexInput = 4,
+    VertexShading = 8,
+    PixelShading = 16,
+    DepthStencil = 32,
+    RenderTarget = 64,
+    ComputeShading = 128,
+    Copy = 512,
+}
+
+/// Enhanced barrier access bits, Direct3D 12's values, or-ed together.
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum Access {
+    Common = 0,
+    VertexBuffer = 1,
+    ConstantBuffer = 2,
+    IndexBuffer = 4,
+    RenderTarget = 8,
+    UnorderedAccess = 16,
+    DepthStencilWrite = 32,
+    DepthStencilRead = 64,
+    ShaderResource = 128,
+    CopyDest = 1024,
+    CopySource = 2048,
+    NoAccess = -2147483648,
+}
+
+/// An enhanced barrier texture layout, Direct3D 12's values.
+#[hxn::data]
+#[derive(Clone, Copy)]
+pub enum Layout {
+    Undefined = -1,
+    Common = 0,
+    GenericRead = 1,
+    RenderTarget = 2,
+    UnorderedAccess = 3,
+    DepthStencilWrite = 4,
+    DepthStencilRead = 5,
+    ShaderResource = 6,
+    CopySource = 7,
+    CopyDest = 8,
 }
 
 /// One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL
@@ -233,6 +331,52 @@ impl Factory {
             .and_then(|i| self.adapters.get(i))
             .and_then(|a| unsafe { a.0.GetDesc1() }.ok())
             .is_some_and(|d| d.Flags & (DXGI_ADAPTER_FLAG_SOFTWARE.0 as u32) != 0)
+    }
+
+    /// A flip-model swap chain of `count` buffers on the window `window` (an `HWND`, which
+    /// hxn-window's `raw(0)` gives on Win32), presented by `device`'s queue.
+    pub fn create_swapchain(
+        &self,
+        device: &Device,
+        window: i64,
+        width: i32,
+        height: i32,
+        format: Format,
+        count: i32,
+    ) -> Result<Swapchain, String> {
+        let desc = DXGI_SWAP_CHAIN_DESC1 {
+            Width: u32_of(width, "a width")?,
+            Height: u32_of(height, "a height")?,
+            Format: format.raw(),
+            SampleDesc: DXGI_SAMPLE_DESC {
+                Count: 1,
+                Quality: 0,
+            },
+            BufferUsage: DXGI_USAGE_RENDER_TARGET_OUTPUT,
+            BufferCount: u32_of(count, "a buffer count")?,
+            SwapEffect: DXGI_SWAP_EFFECT_FLIP_DISCARD,
+            ..Default::default()
+        };
+        let hwnd = HWND(window as usize as *mut c_void);
+        let chain: IDXGISwapChain1 = unsafe {
+            self.factory
+                .0
+                .CreateSwapChainForHwnd(&device.shared.queue.0, hwnd, &desc, None, None)
+        }
+        .map_err(|e| failed("creating the swap chain", e))?;
+        let chain: IDXGISwapChain3 = chain.cast().map_err(|e| failed("the swap chain", e))?;
+        let mut buffers = Vec::new();
+        for i in 0..desc.BufferCount {
+            let resource: ID3D12Resource =
+                unsafe { chain.GetBuffer(i) }.map_err(|e| failed("a swap chain buffer", e))?;
+            buffers.push(Shared(resource));
+        }
+        Ok(Swapchain {
+            chain: Shared(chain),
+            buffers,
+            device: device.shared.clone(),
+            format,
+        })
     }
 
     /// A device on adapter `index`, at feature level 11.0, with one direct queue.
@@ -354,29 +498,12 @@ impl Device {
             ..Default::default()
         };
         let resource = self.commit(Heap::Default, &desc, D3D12_RESOURCE_STATE_COMMON, None)?;
-        let d = &self.shared.device.0;
-        let target = if flags.contains(D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET) {
-            let heap: ID3D12DescriptorHeap = unsafe {
-                d.CreateDescriptorHeap(&D3D12_DESCRIPTOR_HEAP_DESC {
-                    Type: D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
-                    NumDescriptors: 1,
-                    ..Default::default()
-                })
-            }
-            .map_err(|e| failed("creating the render target heap", e))?;
-            let handle = unsafe { heap.GetCPUDescriptorHandleForHeapStart() };
-            unsafe { d.CreateRenderTargetView(&resource, None, handle) };
-            Some(Shared(heap))
-        } else {
-            None
-        };
-        Ok(Texture {
-            resource: Shared(resource),
-            target,
-            width,
-            height,
-            format: descriptor.format,
-        })
+        texture(
+            &self.shared.device.0,
+            resource,
+            descriptor.format,
+            flags.contains(D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET),
+        )
     }
 
     /// HLSL `source` compiled to shader model 5.1 bytecode for `entry` and `profile` (`cs_5_1`,
@@ -415,17 +542,45 @@ impl Device {
         &self,
         parameters: Vec<RootParameter>,
     ) -> Result<RootSignature, String> {
-        let raw = parameters
+        // Each table's ranges, kept alive until the root signature is serialized.
+        let tables = parameters
             .iter()
             .map(|p| {
-                Ok(D3D12_ROOT_PARAMETER {
-                    ParameterType: D3D12_ROOT_PARAMETER_TYPE(p.kind as i32),
-                    Anonymous: D3D12_ROOT_PARAMETER_0 {
+                p.ranges
+                    .iter()
+                    .map(|r| {
+                        Ok(D3D12_DESCRIPTOR_RANGE {
+                            RangeType: D3D12_DESCRIPTOR_RANGE_TYPE(r.kind as i32),
+                            NumDescriptors: u32_of(r.count, "a range's count")?,
+                            BaseShaderRegister: u32_of(r.register, "a register")?,
+                            RegisterSpace: u32_of(r.space, "a register space")?,
+                            OffsetInDescriptorsFromTableStart: u32_of(r.offset, "an offset")?,
+                        })
+                    })
+                    .collect::<Result<Vec<_>, String>>()
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        let raw = parameters
+            .iter()
+            .zip(&tables)
+            .map(|(p, ranges)| {
+                let anonymous = match p.kind {
+                    ParameterKind::DescriptorTable => D3D12_ROOT_PARAMETER_0 {
+                        DescriptorTable: D3D12_ROOT_DESCRIPTOR_TABLE {
+                            NumDescriptorRanges: ranges.len() as u32,
+                            pDescriptorRanges: ranges.as_ptr(),
+                        },
+                    },
+                    _ => D3D12_ROOT_PARAMETER_0 {
                         Descriptor: D3D12_ROOT_DESCRIPTOR {
                             ShaderRegister: u32_of(p.register, "a register")?,
                             RegisterSpace: u32_of(p.space, "a register space")?,
                         },
                     },
+                };
+                Ok(D3D12_ROOT_PARAMETER {
+                    ParameterType: D3D12_ROOT_PARAMETER_TYPE(p.kind as i32),
+                    Anonymous: anonymous,
                     ShaderVisibility: D3D12_SHADER_VISIBILITY(p.visibility as i32),
                 })
             })
@@ -554,6 +709,51 @@ impl Device {
         })
     }
 
+    /// A shader-visible descriptor heap of `count` descriptors: texture views, or samplers.
+    pub fn create_descriptor_heap(
+        &self,
+        kind: HeapKind,
+        count: i32,
+    ) -> Result<DescriptorHeap, String> {
+        let ty = match kind {
+            HeapKind::Resources => D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV,
+            HeapKind::Samplers => D3D12_DESCRIPTOR_HEAP_TYPE_SAMPLER,
+        };
+        let count = u32_of(count, "a descriptor count")?;
+        let d = &self.shared.device.0;
+        let heap: ID3D12DescriptorHeap = unsafe {
+            d.CreateDescriptorHeap(&D3D12_DESCRIPTOR_HEAP_DESC {
+                Type: ty,
+                NumDescriptors: count,
+                Flags: D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE,
+                NodeMask: 0,
+            })
+        }
+        .map_err(|e| failed("creating the descriptor heap", e))?;
+        let increment = unsafe { d.GetDescriptorHandleIncrementSize(ty) } as usize;
+        Ok(DescriptorHeap {
+            shared: self.shared.clone(),
+            heap: Shared(heap),
+            kind,
+            count: count as usize,
+            increment,
+        })
+    }
+
+    /// Whether the device takes enhanced barriers (`CommandList.bufferBarrier`,
+    /// `textureBarrier`).
+    pub fn supports_enhanced_barriers(&self) -> bool {
+        let mut options = D3D12_FEATURE_DATA_D3D12_OPTIONS12::default();
+        let asked = unsafe {
+            self.shared.device.0.CheckFeatureSupport(
+                D3D12_FEATURE_D3D12_OPTIONS12,
+                &mut options as *mut _ as *mut c_void,
+                std::mem::size_of::<D3D12_FEATURE_DATA_D3D12_OPTIONS12>() as u32,
+            )
+        };
+        asked.is_ok() && options.EnhancedBarriersSupported.as_bool()
+    }
+
     /// A direct command list and its allocator, open for recording.
     pub fn create_command_list(&self) -> Result<CommandList, String> {
         let d = &self.shared.device.0;
@@ -590,6 +790,38 @@ impl Device {
             waited
         }))
     }
+}
+
+/// A texture over `resource`, with a render target view when `target` is true.
+fn texture(
+    d: &ID3D12Device,
+    resource: ID3D12Resource,
+    format: Format,
+    target: bool,
+) -> Result<Texture, String> {
+    let desc = unsafe { resource.GetDesc() };
+    let rtv = if target {
+        let heap: ID3D12DescriptorHeap = unsafe {
+            d.CreateDescriptorHeap(&D3D12_DESCRIPTOR_HEAP_DESC {
+                Type: D3D12_DESCRIPTOR_HEAP_TYPE_RTV,
+                NumDescriptors: 1,
+                ..Default::default()
+            })
+        }
+        .map_err(|e| failed("creating the render target heap", e))?;
+        let handle = unsafe { heap.GetCPUDescriptorHandleForHeapStart() };
+        unsafe { d.CreateRenderTargetView(&resource, None, handle) };
+        Some(Shared(heap))
+    } else {
+        None
+    };
+    Ok(Texture {
+        resource: Shared(resource),
+        target: rtv,
+        width: desc.Width as u32,
+        height: desc.Height,
+        format,
+    })
 }
 
 /// Blocks until the device's fence reaches `value`: a null event makes the call wait.
@@ -752,6 +984,134 @@ impl Texture {
     }
 }
 
+/// A shader-visible descriptor heap, written descriptor by descriptor.
+#[hxn::interface]
+pub struct DescriptorHeap {
+    shared: Arc<DeviceShared>,
+    heap: Shared<ID3D12DescriptorHeap>,
+    kind: HeapKind,
+    count: usize,
+    increment: usize,
+}
+
+#[hxn::methods]
+impl DescriptorHeap {
+    /// Writes a shader resource view of all of `texture` at descriptor `index`.
+    pub fn write_texture(&mut self, index: i32, texture: &Texture) -> Result<(), String> {
+        let handle = self.cpu(index, HeapKind::Resources)?;
+        let view = D3D12_SHADER_RESOURCE_VIEW_DESC {
+            Format: texture.format.raw(),
+            ViewDimension: D3D12_SRV_DIMENSION_TEXTURE2D,
+            Shader4ComponentMapping: D3D12_DEFAULT_SHADER_4_COMPONENT_MAPPING,
+            Anonymous: D3D12_SHADER_RESOURCE_VIEW_DESC_0 {
+                Texture2D: D3D12_TEX2D_SRV {
+                    MostDetailedMip: 0,
+                    MipLevels: 1,
+                    PlaneSlice: 0,
+                    ResourceMinLODClamp: 0.0,
+                },
+            },
+        };
+        unsafe {
+            self.shared
+                .device
+                .0
+                .CreateShaderResourceView(&texture.resource.0, Some(&view), handle)
+        };
+        Ok(())
+    }
+
+    /// Writes a sampler at descriptor `index`.
+    pub fn write_sampler(
+        &mut self,
+        index: i32,
+        filter: Filter,
+        address: AddressMode,
+    ) -> Result<(), String> {
+        let handle = self.cpu(index, HeapKind::Samplers)?;
+        let address = D3D12_TEXTURE_ADDRESS_MODE(address as i32);
+        let desc = D3D12_SAMPLER_DESC {
+            Filter: D3D12_FILTER(filter as i32),
+            AddressU: address,
+            AddressV: address,
+            AddressW: address,
+            MipLODBias: 0.0,
+            MaxAnisotropy: 1,
+            ComparisonFunc: D3D12_COMPARISON_FUNC_NEVER,
+            BorderColor: [0.0; 4],
+            MinLOD: 0.0,
+            MaxLOD: f32::MAX,
+        };
+        unsafe { self.shared.device.0.CreateSampler(&desc, handle) };
+        Ok(())
+    }
+}
+
+impl DescriptorHeap {
+    fn cpu(&self, index: i32, kind: HeapKind) -> Result<D3D12_CPU_DESCRIPTOR_HANDLE, String> {
+        if self.kind != kind {
+            return Err("the descriptor does not belong in this kind of heap".into());
+        }
+        let at = self.at(index)?;
+        let start = unsafe { self.heap.0.GetCPUDescriptorHandleForHeapStart() };
+        Ok(D3D12_CPU_DESCRIPTOR_HANDLE {
+            ptr: start.ptr + at * self.increment,
+        })
+    }
+
+    fn gpu(&self, index: i32) -> Result<D3D12_GPU_DESCRIPTOR_HANDLE, String> {
+        let at = self.at(index)?;
+        let start = unsafe { self.heap.0.GetGPUDescriptorHandleForHeapStart() };
+        Ok(D3D12_GPU_DESCRIPTOR_HANDLE {
+            ptr: start.ptr + (at * self.increment) as u64,
+        })
+    }
+
+    fn at(&self, index: i32) -> Result<usize, String> {
+        usize::try_from(index)
+            .ok()
+            .filter(|&i| i < self.count)
+            .ok_or_else(|| format!("the heap has no descriptor {index}"))
+    }
+}
+
+/// A swap chain on a window: its buffers are render targets, presented in turn.
+#[hxn::interface]
+pub struct Swapchain {
+    chain: Shared<IDXGISwapChain3>,
+    buffers: Vec<Shared<ID3D12Resource>>,
+    device: Arc<DeviceShared>,
+    format: Format,
+}
+
+#[hxn::methods]
+impl Swapchain {
+    /// The buffer to render into next.
+    pub fn current_index(&self) -> i32 {
+        unsafe { self.chain.0.GetCurrentBackBufferIndex() as i32 }
+    }
+
+    /// Buffer `index` as a render target texture. It is in the common (present) state.
+    pub fn buffer(&self, index: i32) -> Result<Texture, String> {
+        let resource = usize::try_from(index)
+            .ok()
+            .and_then(|i| self.buffers.get(i))
+            .ok_or_else(|| format!("the swap chain has no buffer {index}"))?;
+        texture(&self.device.device.0, resource.0.clone(), self.format, true)
+    }
+
+    /// Presents the current buffer, after `interval` vertical blanks (0 presents at once).
+    pub fn present(&self, interval: i32) -> Result<(), String> {
+        unsafe {
+            self.chain
+                .0
+                .Present(u32_of(interval, "an interval")?, DXGI_PRESENT(0))
+        }
+        .ok()
+        .map_err(|e| failed("presenting", e))
+    }
+}
+
 #[hxn::interface]
 pub struct RootSignature {
     signature: Shared<ID3D12RootSignature>,
@@ -809,6 +1169,9 @@ impl CommandList {
         kind: ParameterKind,
         buffer: &Buffer,
     ) -> Result<(), String> {
+        if matches!(kind, ParameterKind::DescriptorTable) {
+            return Err("a descriptor table binds with a set_*_root_table call".into());
+        }
         let list = self.recording()?;
         let (index, address) = (u32_of(index, "a root parameter")?, unsafe {
             buffer.resource.0.GetGPUVirtualAddress()
@@ -824,6 +1187,7 @@ impl CommandList {
                 ParameterKind::UnorderedAccess => {
                     list.SetComputeRootUnorderedAccessView(index, address)
                 }
+                ParameterKind::DescriptorTable => {}
             }
         };
         Ok(())
@@ -836,6 +1200,9 @@ impl CommandList {
         kind: ParameterKind,
         buffer: &Buffer,
     ) -> Result<(), String> {
+        if matches!(kind, ParameterKind::DescriptorTable) {
+            return Err("a descriptor table binds with a set_*_root_table call".into());
+        }
         let list = self.recording()?;
         let (index, address) = (u32_of(index, "a root parameter")?, unsafe {
             buffer.resource.0.GetGPUVirtualAddress()
@@ -851,8 +1218,176 @@ impl CommandList {
                 ParameterKind::UnorderedAccess => {
                     list.SetGraphicsRootUnorderedAccessView(index, address)
                 }
+                ParameterKind::DescriptorTable => {}
             }
         };
+        Ok(())
+    }
+
+    /// Makes `resources` and `samplers` the shader-visible heaps descriptor tables index.
+    pub fn set_descriptor_heaps(
+        &mut self,
+        resources: &DescriptorHeap,
+        samplers: &DescriptorHeap,
+    ) -> Result<(), String> {
+        let list = self.recording()?;
+        unsafe {
+            list.SetDescriptorHeaps(&[
+                Some(resources.heap.0.clone()),
+                Some(samplers.heap.0.clone()),
+            ])
+        };
+        Ok(())
+    }
+
+    /// Makes `heap` the one shader-visible heap descriptor tables index.
+    pub fn set_descriptor_heap(&mut self, heap: &DescriptorHeap) -> Result<(), String> {
+        let list = self.recording()?;
+        unsafe { list.SetDescriptorHeaps(&[Some(heap.heap.0.clone())]) };
+        Ok(())
+    }
+
+    /// Binds the table at descriptor `offset` of `heap` to root parameter `index` of the compute
+    /// root signature.
+    pub fn set_compute_root_table(
+        &mut self,
+        index: i32,
+        heap: &DescriptorHeap,
+        offset: i32,
+    ) -> Result<(), String> {
+        let list = self.recording()?;
+        let (index, handle) = (u32_of(index, "a root parameter")?, heap.gpu(offset)?);
+        unsafe { list.SetComputeRootDescriptorTable(index, handle) };
+        Ok(())
+    }
+
+    /// Binds the table at descriptor `offset` of `heap` to root parameter `index` of the
+    /// graphics root signature.
+    pub fn set_graphics_root_table(
+        &mut self,
+        index: i32,
+        heap: &DescriptorHeap,
+        offset: i32,
+    ) -> Result<(), String> {
+        let list = self.recording()?;
+        let (index, handle) = (u32_of(index, "a root parameter")?, heap.gpu(offset)?);
+        unsafe { list.SetGraphicsRootDescriptorTable(index, handle) };
+        Ok(())
+    }
+
+    /// An enhanced barrier on all of `buffer`: work in `sync_before` doing `access_before`
+    /// finishes, and its writes are visible, before work in `sync_after` doing `access_after`.
+    pub fn buffer_barrier(
+        &mut self,
+        buffer: &Buffer,
+        sync_before: i32,
+        access_before: i32,
+        sync_after: i32,
+        access_after: i32,
+    ) -> Result<(), String> {
+        let list = self.enhanced()?;
+        let barrier = D3D12_BUFFER_BARRIER {
+            SyncBefore: D3D12_BARRIER_SYNC(sync_before),
+            SyncAfter: D3D12_BARRIER_SYNC(sync_after),
+            AccessBefore: D3D12_BARRIER_ACCESS(access_before),
+            AccessAfter: D3D12_BARRIER_ACCESS(access_after),
+            pResource: unsafe { std::mem::transmute_copy(&buffer.resource.0) },
+            Offset: 0,
+            Size: u64::MAX,
+        };
+        let group = D3D12_BARRIER_GROUP {
+            Type: D3D12_BARRIER_TYPE_BUFFER,
+            NumBarriers: 1,
+            Anonymous: D3D12_BARRIER_GROUP_0 {
+                pBufferBarriers: &barrier,
+            },
+        };
+        unsafe { list.Barrier(&[group]) };
+        Ok(())
+    }
+
+    /// An enhanced barrier on all of `texture` that also moves it from layout `from` to `to`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn texture_barrier(
+        &mut self,
+        texture: &Texture,
+        sync_before: i32,
+        access_before: i32,
+        from: Layout,
+        sync_after: i32,
+        access_after: i32,
+        to: Layout,
+    ) -> Result<(), String> {
+        let list = self.enhanced()?;
+        let barrier = D3D12_TEXTURE_BARRIER {
+            SyncBefore: D3D12_BARRIER_SYNC(sync_before),
+            SyncAfter: D3D12_BARRIER_SYNC(sync_after),
+            AccessBefore: D3D12_BARRIER_ACCESS(access_before),
+            AccessAfter: D3D12_BARRIER_ACCESS(access_after),
+            LayoutBefore: D3D12_BARRIER_LAYOUT(from as i32),
+            LayoutAfter: D3D12_BARRIER_LAYOUT(to as i32),
+            pResource: unsafe { std::mem::transmute_copy(&texture.resource.0) },
+            // An index of all ones means every subresource.
+            Subresources: D3D12_BARRIER_SUBRESOURCE_RANGE {
+                IndexOrFirstMipLevel: u32::MAX,
+                NumMipLevels: 0,
+                FirstArraySlice: 0,
+                NumArraySlices: 0,
+                FirstPlane: 0,
+                NumPlanes: 0,
+            },
+            Flags: D3D12_TEXTURE_BARRIER_FLAG_NONE,
+        };
+        let group = D3D12_BARRIER_GROUP {
+            Type: D3D12_BARRIER_TYPE_TEXTURE,
+            NumBarriers: 1,
+            Anonymous: D3D12_BARRIER_GROUP_0 {
+                pTextureBarriers: &barrier,
+            },
+        };
+        unsafe { list.Barrier(&[group]) };
+        Ok(())
+    }
+
+    /// Copies all of `buffer`, rows `texture.copyPitch()` bytes apart, into `texture`, which
+    /// must be in the copy destination state.
+    pub fn copy_buffer_to_texture(
+        &mut self,
+        texture: &Texture,
+        buffer: &Buffer,
+    ) -> Result<(), String> {
+        let list = self.recording()?;
+        let needed = texture.pitch() as usize * texture.height as usize;
+        if buffer.size < needed {
+            return Err(format!(
+                "the buffer holds {} bytes and the texture needs {needed}",
+                buffer.size
+            ));
+        }
+        let destination = D3D12_TEXTURE_COPY_LOCATION {
+            pResource: unsafe { std::mem::transmute_copy(&texture.resource.0) },
+            Type: D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            Anonymous: D3D12_TEXTURE_COPY_LOCATION_0 {
+                SubresourceIndex: 0,
+            },
+        };
+        let source = D3D12_TEXTURE_COPY_LOCATION {
+            pResource: unsafe { std::mem::transmute_copy(&buffer.resource.0) },
+            Type: D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+            Anonymous: D3D12_TEXTURE_COPY_LOCATION_0 {
+                PlacedFootprint: D3D12_PLACED_SUBRESOURCE_FOOTPRINT {
+                    Offset: 0,
+                    Footprint: D3D12_SUBRESOURCE_FOOTPRINT {
+                        Format: texture.format.raw(),
+                        Width: texture.width,
+                        Height: texture.height,
+                        Depth: 1,
+                        RowPitch: texture.pitch(),
+                    },
+                },
+            },
+        };
+        unsafe { list.CopyTextureRegion(&destination, 0, 0, 0, &source, None) };
         Ok(())
     }
 
@@ -1053,6 +1588,13 @@ impl CommandList {
             return Err("the command list was executed; record into a new one".into());
         }
         Ok(&self.recorded.list.0)
+    }
+
+    /// The list as the interface that records enhanced barriers.
+    fn enhanced(&self) -> Result<ID3D12GraphicsCommandList7, String> {
+        self.recording()?
+            .cast()
+            .map_err(|e| failed("the device takes no enhanced barriers", e))
     }
 
     fn transition(

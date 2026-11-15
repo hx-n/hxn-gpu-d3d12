@@ -40,6 +40,13 @@ inline bool factory_is_software(void *self, int index) {
 	return out != 0;
 }
 
+inline void *factory_create_swapchain(void *self, void *device, cpp::Int64 window, int width, int height, int format, int count) {
+	hxn_handle *out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_factory_create_swapchain((hxn_handle *)self, (hxn_handle *)device, window, width, height, format, count, &out, &err), err);
+	return out;
+}
+
 inline void *factory_create_device(void *self, int index) {
 	hxn_handle *out = 0;
 	hxn_buf err = HXN_BUF_EMPTY;
@@ -102,6 +109,20 @@ inline void *device_create_graphics_pipeline(void *self, Array<unsigned char> ve
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_device_create_graphics_pipeline((hxn_handle *)self, hxn::slice(vertex), hxn::slice(pixel), (hxn_handle *)signature, format, topology, hxn::slice(attributes), &out, &err), err);
 	return out;
+}
+
+inline void *device_create_descriptor_heap(void *self, int kind, int count) {
+	hxn_handle *out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_device_create_descriptor_heap((hxn_handle *)self, kind, count, &out, &err), err);
+	return out;
+}
+
+inline bool device_supports_enhanced_barriers(void *self) {
+	int out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_device_supports_enhanced_barriers((hxn_handle *)self, &out, &err), err);
+	return out != 0;
 }
 
 inline void *device_create_command_list(void *self) {
@@ -183,6 +204,45 @@ inline void texture_drop(void *self) {
 	hxn::check(hxn_gpu_d3d12_texture_drop((hxn_handle *)self, &err), err);
 }
 
+inline void descriptor_heap_write_texture(void *self, int index, void *texture) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_descriptor_heap_write_texture((hxn_handle *)self, index, (hxn_handle *)texture, &err), err);
+}
+
+inline void descriptor_heap_write_sampler(void *self, int index, int filter, int address) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_descriptor_heap_write_sampler((hxn_handle *)self, index, filter, address, &err), err);
+}
+
+inline void descriptor_heap_drop(void *self) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_descriptor_heap_drop((hxn_handle *)self, &err), err);
+}
+
+inline int swapchain_current_index(void *self) {
+	int out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_swapchain_current_index((hxn_handle *)self, &out, &err), err);
+	return out;
+}
+
+inline void *swapchain_buffer(void *self, int index) {
+	hxn_handle *out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_swapchain_buffer((hxn_handle *)self, index, &out, &err), err);
+	return out;
+}
+
+inline void swapchain_present(void *self, int interval) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_swapchain_present((hxn_handle *)self, interval, &err), err);
+}
+
+inline void swapchain_drop(void *self) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_swapchain_drop((hxn_handle *)self, &err), err);
+}
+
 inline void root_signature_drop(void *self) {
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_root_signature_drop((hxn_handle *)self, &err), err);
@@ -216,6 +276,41 @@ inline void command_list_set_compute_root_buffer(void *self, int index, int kind
 inline void command_list_set_graphics_root_buffer(void *self, int index, int kind, void *buffer) {
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_command_list_set_graphics_root_buffer((hxn_handle *)self, index, kind, (hxn_handle *)buffer, &err), err);
+}
+
+inline void command_list_set_descriptor_heaps(void *self, void *resources, void *samplers) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_descriptor_heaps((hxn_handle *)self, (hxn_handle *)resources, (hxn_handle *)samplers, &err), err);
+}
+
+inline void command_list_set_descriptor_heap(void *self, void *heap) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_descriptor_heap((hxn_handle *)self, (hxn_handle *)heap, &err), err);
+}
+
+inline void command_list_set_compute_root_table(void *self, int index, void *heap, int offset) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_compute_root_table((hxn_handle *)self, index, (hxn_handle *)heap, offset, &err), err);
+}
+
+inline void command_list_set_graphics_root_table(void *self, int index, void *heap, int offset) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_graphics_root_table((hxn_handle *)self, index, (hxn_handle *)heap, offset, &err), err);
+}
+
+inline void command_list_buffer_barrier(void *self, void *buffer, int sync_before, int access_before, int sync_after, int access_after) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_buffer_barrier((hxn_handle *)self, (hxn_handle *)buffer, sync_before, access_before, sync_after, access_after, &err), err);
+}
+
+inline void command_list_texture_barrier(void *self, void *texture, int sync_before, int access_before, int from, int sync_after, int access_after, int to) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_texture_barrier((hxn_handle *)self, (hxn_handle *)texture, sync_before, access_before, from, sync_after, access_after, to, &err), err);
+}
+
+inline void command_list_copy_buffer_to_texture(void *self, void *texture, void *buffer) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_copy_buffer_to_texture((hxn_handle *)self, (hxn_handle *)texture, (hxn_handle *)buffer, &err), err);
 }
 
 inline void command_list_dispatch(void *self, int x, int y, int z) {

@@ -25,12 +25,45 @@
     },
     {
       "name": "ParameterKind",
-      "docs": "A root parameter's kind: a root descriptor for a buffer. Direct3D 12's values.",
-      "variants": [{ "name": "ConstantBuffer", "value": 2 }, { "name": "ShaderResource", "value": 3 }, { "name": "UnorderedAccess", "value": 4 }]
+      "docs": "A root parameter's kind: a descriptor table, or a root descriptor for a buffer.\nDirect3D 12's values.",
+      "variants": [{ "name": "DescriptorTable", "value": 0 }, { "name": "ConstantBuffer", "value": 2 }, { "name": "ShaderResource", "value": 3 }, { "name": "UnorderedAccess", "value": 4 }]
     },
     {
       "name": "Visibility",
       "variants": [{ "name": "All", "value": 0 }, { "name": "Vertex", "value": 1 }, { "name": "Pixel", "value": 5 }]
+    },
+    {
+      "name": "RangeKind",
+      "docs": "What a descriptor range holds. Direct3D 12's values.",
+      "variants": [{ "name": "ShaderResource", "value": 0 }, { "name": "UnorderedAccess", "value": 1 }, { "name": "ConstantBuffer", "value": 2 }, { "name": "Sampler", "value": 3 }]
+    },
+    {
+      "name": "HeapKind",
+      "docs": "A shader-visible descriptor heap's kind.",
+      "variants": [{ "name": "Resources", "value": 0 }, { "name": "Samplers", "value": 1 }]
+    },
+    {
+      "name": "Filter",
+      "variants": [{ "name": "Nearest", "value": 0 }, { "name": "Linear", "value": 21 }]
+    },
+    {
+      "name": "AddressMode",
+      "variants": [{ "name": "Wrap", "value": 1 }, { "name": "Mirror", "value": 2 }, { "name": "Clamp", "value": 3 }]
+    },
+    {
+      "name": "BarrierSync",
+      "docs": "Enhanced barrier sync bits, Direct3D 12's values, or-ed together.",
+      "variants": [{ "name": "None", "value": 0 }, { "name": "All", "value": 1 }, { "name": "Draw", "value": 2 }, { "name": "IndexInput", "value": 4 }, { "name": "VertexShading", "value": 8 }, { "name": "PixelShading", "value": 16 }, { "name": "DepthStencil", "value": 32 }, { "name": "RenderTarget", "value": 64 }, { "name": "ComputeShading", "value": 128 }, { "name": "Copy", "value": 512 }]
+    },
+    {
+      "name": "Access",
+      "docs": "Enhanced barrier access bits, Direct3D 12's values, or-ed together.",
+      "variants": [{ "name": "Common", "value": 0 }, { "name": "VertexBuffer", "value": 1 }, { "name": "ConstantBuffer", "value": 2 }, { "name": "IndexBuffer", "value": 4 }, { "name": "RenderTarget", "value": 8 }, { "name": "UnorderedAccess", "value": 16 }, { "name": "DepthStencilWrite", "value": 32 }, { "name": "DepthStencilRead", "value": 64 }, { "name": "ShaderResource", "value": 128 }, { "name": "CopyDest", "value": 1024 }, { "name": "CopySource", "value": 2048 }, { "name": "NoAccess", "value": -2147483648 }]
+    },
+    {
+      "name": "Layout",
+      "docs": "An enhanced barrier texture layout, Direct3D 12's values.",
+      "variants": [{ "name": "Undefined", "value": -1 }, { "name": "Common", "value": 0 }, { "name": "GenericRead", "value": 1 }, { "name": "RenderTarget", "value": 2 }, { "name": "UnorderedAccess", "value": 3 }, { "name": "DepthStencilWrite", "value": 4 }, { "name": "DepthStencilRead", "value": 5 }, { "name": "ShaderResource", "value": 6 }, { "name": "CopySource", "value": 7 }, { "name": "CopyDest", "value": 8 }]
     },
     {
       "name": "Topology",
@@ -48,13 +81,25 @@
       ]
     },
     {
+      "name": "RootRange",
+      "docs": "`count` descriptors from register `register` of `space`, `offset` descriptors into the\ntable.",
+      "fields": [
+        { "name": "kind", "type": "RangeKind" },
+        { "name": "count", "type": "i32" },
+        { "name": "register", "type": "i32" },
+        { "name": "space", "type": "i32" },
+        { "name": "offset", "type": "i32" }
+      ]
+    },
+    {
       "name": "RootParameter",
-      "docs": "One root descriptor: `register` and `space` are hxnsl's `HLSL_SLOTS` ones.",
+      "docs": "One root parameter: a root descriptor at `register` and `space` (hxnsl's `HLSL_SLOTS`), or a\ndescriptor table of `ranges`.",
       "fields": [
         { "name": "kind", "type": "ParameterKind" },
         { "name": "register", "type": "i32" },
         { "name": "space", "type": "i32" },
-        { "name": "visibility", "type": "Visibility" }
+        { "name": "visibility", "type": "Visibility" },
+        { "name": "ranges", "type": "list<RootRange>" }
       ]
     },
     {
@@ -97,6 +142,15 @@
           "params": [{ "name": "index", "type": "i32" }],
           "returns": "bool",
           "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "create_swapchain",
+          "docs": "A flip-model swap chain of `count` buffers on the window `window` (an `HWND`, which\nhxn-window's `raw(0)` gives on Win32), presented by `device`'s queue.",
+          "kind": "method",
+          "params": [{ "name": "device", "type": "Device" }, { "name": "window", "type": "i64" }, { "name": "width", "type": "i32" }, { "name": "height", "type": "i32" }, { "name": "format", "type": "Format" }, { "name": "count", "type": "i32" }],
+          "returns": "Swapchain",
+          "fallible": true,
           "blocking": false
         },
         {
@@ -175,6 +229,24 @@
           "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "format", "type": "Format" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }],
           "returns": "PipelineState",
           "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_descriptor_heap",
+          "docs": "A shader-visible descriptor heap of `count` descriptors: texture views, or samplers.",
+          "kind": "method",
+          "params": [{ "name": "kind", "type": "HeapKind" }, { "name": "count", "type": "i32" }],
+          "returns": "DescriptorHeap",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "supports_enhanced_barriers",
+          "docs": "Whether the device takes enhanced barriers (`CommandList.bufferBarrier`,\n`textureBarrier`).",
+          "kind": "method",
+          "params": [],
+          "returns": "bool",
+          "fallible": false,
           "blocking": false
         },
         {
@@ -270,6 +342,63 @@
       ]
     },
     {
+      "name": "DescriptorHeap",
+      "docs": "A shader-visible descriptor heap, written descriptor by descriptor.",
+      "methods": [
+        {
+          "name": "write_texture",
+          "docs": "Writes a shader resource view of all of `texture` at descriptor `index`.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "texture", "type": "Texture" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "write_sampler",
+          "docs": "Writes a sampler at descriptor `index`.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "filter", "type": "Filter" }, { "name": "address", "type": "AddressMode" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "name": "Swapchain",
+      "docs": "A swap chain on a window: its buffers are render targets, presented in turn.",
+      "methods": [
+        {
+          "name": "current_index",
+          "docs": "The buffer to render into next.",
+          "kind": "method",
+          "params": [],
+          "returns": "i32",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "buffer",
+          "docs": "Buffer `index` as a render target texture. It is in the common (present) state.",
+          "kind": "method",
+          "params": [{ "name": "index", "type": "i32" }],
+          "returns": "Texture",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "present",
+          "docs": "Presents the current buffer, after `interval` vertical blanks (0 presents at once).",
+          "kind": "method",
+          "params": [{ "name": "interval", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
       "name": "RootSignature",
       "methods": []
     },
@@ -319,6 +448,69 @@
           "docs": "Binds `buffer` to root parameter `index` of the graphics root signature.",
           "kind": "mutating",
           "params": [{ "name": "index", "type": "i32" }, { "name": "kind", "type": "ParameterKind" }, { "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_descriptor_heaps",
+          "docs": "Makes `resources` and `samplers` the shader-visible heaps descriptor tables index.",
+          "kind": "mutating",
+          "params": [{ "name": "resources", "type": "DescriptorHeap" }, { "name": "samplers", "type": "DescriptorHeap" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_descriptor_heap",
+          "docs": "Makes `heap` the one shader-visible heap descriptor tables index.",
+          "kind": "mutating",
+          "params": [{ "name": "heap", "type": "DescriptorHeap" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_compute_root_table",
+          "docs": "Binds the table at descriptor `offset` of `heap` to root parameter `index` of the compute\nroot signature.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "heap", "type": "DescriptorHeap" }, { "name": "offset", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_graphics_root_table",
+          "docs": "Binds the table at descriptor `offset` of `heap` to root parameter `index` of the\ngraphics root signature.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "heap", "type": "DescriptorHeap" }, { "name": "offset", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "buffer_barrier",
+          "docs": "An enhanced barrier on all of `buffer`: work in `sync_before` doing `access_before`\nfinishes, and its writes are visible, before work in `sync_after` doing `access_after`.",
+          "kind": "mutating",
+          "params": [{ "name": "buffer", "type": "Buffer" }, { "name": "sync_before", "type": "i32" }, { "name": "access_before", "type": "i32" }, { "name": "sync_after", "type": "i32" }, { "name": "access_after", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "texture_barrier",
+          "docs": "An enhanced barrier on all of `texture` that also moves it from layout `from` to `to`.",
+          "kind": "mutating",
+          "params": [{ "name": "texture", "type": "Texture" }, { "name": "sync_before", "type": "i32" }, { "name": "access_before", "type": "i32" }, { "name": "from", "type": "Layout" }, { "name": "sync_after", "type": "i32" }, { "name": "access_after", "type": "i32" }, { "name": "to", "type": "Layout" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "copy_buffer_to_texture",
+          "docs": "Copies all of `buffer`, rows `texture.copyPitch()` bytes apart, into `texture`, which\nmust be in the copy destination state.",
+          "kind": "mutating",
+          "params": [{ "name": "texture", "type": "Texture" }, { "name": "buffer", "type": "Buffer" }],
           "returns": "void",
           "fallible": true,
           "blocking": false

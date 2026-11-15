@@ -85,6 +85,16 @@ runs:
         test -n "$tag"
         cargo install --git https://github.com/hx-n/hxn.git --tag "$tag" --locked hxn-cli
         hxn version
+    # DXC, which compiles each shader to signed DXIL during the Haxe build.
+    - if: runner.os == 'Windows'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        temp="$(cygpath -u "$RUNNER_TEMP")"
+        gh release download v1.9.2609 --repo microsoft/DirectXShaderCompiler --pattern 'dxc_*.zip' --dir "$temp/dxc"
+        unzip -q "$temp"/dxc/dxc_*.zip -d "$temp/dxc"
+        cygpath -w "$temp/dxc/bin/x64" >> "$GITHUB_PATH"
     # hxnsl, which writes the check's shaders, with its tool prebuilt.
     - shell: bash
       run: haxelib install hxnsl --always

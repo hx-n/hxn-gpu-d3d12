@@ -25,8 +25,11 @@ jobs:
         with:
           runtime: hl
       # Fails without a Direct3D 12 device, rather than passing on the line the check
-      # prints without one.
+      # prints without one, or if the shaders fell back to HLSL for want of DXC.
       - run: |
           hxn check hl 2>&1 | tee check.txt
           grep -q '^compute: 64 values' check.txt
           grep -q '^render: 4x4 pixels' check.txt
+          grep -q '^textured: 4x4 pixels' check.txt
+          grep -q '^enhanced barriers: ' check.txt
+          ! grep -q 'no DXC' check.txt

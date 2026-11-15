@@ -33,6 +33,46 @@ class CommandList {
 	public function setGraphicsRootBuffer(index:Int, kind:ParameterKind, buffer:Buffer):Void
 		HxnGpuD3d12Native.command_list_set_graphics_root_buffer(hxnRaw, index, kind, buffer == null ? null : buffer.hxnRaw);
 
+	/** Makes `resources` and `samplers` the shader-visible heaps descriptor tables index. **/
+	public function setDescriptorHeaps(resources:DescriptorHeap, samplers:DescriptorHeap):Void
+		HxnGpuD3d12Native.command_list_set_descriptor_heaps(hxnRaw, resources == null ? null : resources.hxnRaw, samplers == null ? null : samplers.hxnRaw);
+
+	/** Makes `heap` the one shader-visible heap descriptor tables index. **/
+	public function setDescriptorHeap(heap:DescriptorHeap):Void
+		HxnGpuD3d12Native.command_list_set_descriptor_heap(hxnRaw, heap == null ? null : heap.hxnRaw);
+
+	/**
+		Binds the table at descriptor `offset` of `heap` to root parameter `index` of the compute
+		root signature.
+	**/
+	public function setComputeRootTable(index:Int, heap:DescriptorHeap, offset:Int):Void
+		HxnGpuD3d12Native.command_list_set_compute_root_table(hxnRaw, index, heap == null ? null : heap.hxnRaw, offset);
+
+	/**
+		Binds the table at descriptor `offset` of `heap` to root parameter `index` of the
+		graphics root signature.
+	**/
+	public function setGraphicsRootTable(index:Int, heap:DescriptorHeap, offset:Int):Void
+		HxnGpuD3d12Native.command_list_set_graphics_root_table(hxnRaw, index, heap == null ? null : heap.hxnRaw, offset);
+
+	/**
+		An enhanced barrier on all of `buffer`: work in `sync_before` doing `access_before`
+		finishes, and its writes are visible, before work in `sync_after` doing `access_after`.
+	**/
+	public function bufferBarrier(buffer:Buffer, syncBefore:Int, accessBefore:Int, syncAfter:Int, accessAfter:Int):Void
+		HxnGpuD3d12Native.command_list_buffer_barrier(hxnRaw, buffer == null ? null : buffer.hxnRaw, syncBefore, accessBefore, syncAfter, accessAfter);
+
+	/** An enhanced barrier on all of `texture` that also moves it from layout `from` to `to`. **/
+	public function textureBarrier(texture:Texture, syncBefore:Int, accessBefore:Int, from:Layout, syncAfter:Int, accessAfter:Int, to:Layout):Void
+		HxnGpuD3d12Native.command_list_texture_barrier(hxnRaw, texture == null ? null : texture.hxnRaw, syncBefore, accessBefore, from, syncAfter, accessAfter, to);
+
+	/**
+		Copies all of `buffer`, rows `texture.copyPitch()` bytes apart, into `texture`, which
+		must be in the copy destination state.
+	**/
+	public function copyBufferToTexture(texture:Texture, buffer:Buffer):Void
+		HxnGpuD3d12Native.command_list_copy_buffer_to_texture(hxnRaw, texture == null ? null : texture.hxnRaw, buffer == null ? null : buffer.hxnRaw);
+
 	public function dispatch(x:Int, y:Int, z:Int):Void
 		HxnGpuD3d12Native.command_list_dispatch(hxnRaw, x, y, z);
 
