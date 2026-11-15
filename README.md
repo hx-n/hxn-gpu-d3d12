@@ -13,8 +13,8 @@ explicit: the program records resource state transitions, or enhanced
 barriers where the device supports them. A swap chain presents to a window.
 
 Shaders come from [hxnsl](https://github.com/hx-n/hxnsl), which writes HLSL
-during the Haxe build and reports each binding's register in `HLSL_SLOTS`.
-When DXC is installed, the build also compiles each entry point to DXIL.
+at compile time and reports each binding's register in `HLSL_SLOTS`.
+When DXC is installed, each entry point is also compiled to DXIL at compile time.
 `RootLayout` builds a root signature from the registers.
 
 ```haxe
@@ -56,7 +56,7 @@ HashLink and hxcpp. A program needs no Rust.
 
 For DXIL, install [DXC](https://github.com/microsoft/DirectXShaderCompiler/releases)
 1.8 or later and put `dxc` on `PATH`, or set `HXN_GPU_D3D12_DXC` to its path.
-Without it the build warns once and the program compiles the HLSL when it
+Without it, compilation warns once and the program compiles the HLSL when it
 loads.
 
 ## Classes
@@ -102,7 +102,7 @@ A shader for this driver implements `gpu.d3d12.Shader`, which extends
 `hxnsl.Shader` and gets hxnsl's `HLSL`, `HLSL_SLOTS` and `LAYOUT`.
 
 - `Shader.dxil(entry)` is the entry point's DXIL, shader model 6.0, compiled
-  by DXC during the build, or null without DXC.
+  by DXC at compile time, or null without DXC.
   `gpu.d3d12.Shaders.bytecode(device, Shader.dxil(entry), Shader.HLSL, entry, stage)`
   returns it, or else compiles the HLSL to shader model 5.1 with the
   compiler that ships with Windows. The entry points are `vertex_main`,

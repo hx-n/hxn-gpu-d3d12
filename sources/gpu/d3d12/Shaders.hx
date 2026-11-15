@@ -16,7 +16,7 @@ class Shaders {
 	#elseif hxnsl
 
 	/**
-		An entry point's bytecode: its DXIL when the build made it, so
+		An entry point's bytecode: its DXIL when DXC compiled it with the program, so
 		nothing is compiled now, else its HLSL compiled now to shader model
 		5.1. `dxil` is the shader's `dxil(entry)`, `stage` vertex, fragment or
 		compute.

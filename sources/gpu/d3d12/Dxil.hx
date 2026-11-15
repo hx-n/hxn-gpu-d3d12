@@ -8,7 +8,7 @@ import sys.io.Process;
 
 /**
 	An hxnsl target that compiles each of a shader's entry points to DXIL
-	during the build, for shader model 6.0, with DXC: the one
+	at compile time, for shader model 6.0, with DXC: the one
 	`HXN_GPU_D3D12_DXC` names, else `dxc` on the path. DXC 1.8 signs the
 	DXIL it writes on any platform, as Direct3D 12 requires. Without DXC the
 	shader's `dxil()` is null, and the program compiles its HLSL when it
@@ -79,7 +79,7 @@ class Dxil extends hxnsl.Target {
 		var body:Expr = {expr: ESwitch(macro entry, cases, macro null), pos: s.pos};
 		return [{
 			name: "dxil",
-			doc: "The entry point `entry` as signed DXIL for shader model 6.0, or null where the build had no DXC.",
+			doc: "The entry point `entry` as signed DXIL for shader model 6.0, or null where DXC was not found at compile time.",
 			access: [APublic, AStatic],
 			kind: FFun({args: [{name: "entry", type: macro :String}], ret: macro :Null<haxe.io.Bytes>, expr: macro return $body}),
 			pos: s.pos
