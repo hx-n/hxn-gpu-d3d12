@@ -93,7 +93,8 @@ runs:
       run: |
         temp="$(cygpath -u "$RUNNER_TEMP")"
         gh release download v1.9.2609 --repo microsoft/DirectXShaderCompiler --pattern 'dxc_*.zip' --dir "$temp/dxc"
-        unzip -q "$temp"/dxc/dxc_*.zip -d "$temp/dxc"
+        # The archive's paths use backslashes, which unzip warns about with a failing status.
+        7z x -y -o"$(cygpath -w "$temp/dxc")" "$(cygpath -w "$(ls "$temp"/dxc/dxc_*.zip)")" > /dev/null
         cygpath -w "$temp/dxc/bin/x64" >> "$GITHUB_PATH"
     # hxnsl, which writes the check's shaders, with its tool prebuilt.
     - shell: bash

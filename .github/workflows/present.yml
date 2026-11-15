@@ -1,0 +1,34 @@
+name: Present
+
+# A swap chain on a real window: hxn-window opens one on the runner's desktop.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  present:
+    name: Present, Windows
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          runtime: ash
+      - run: haxelib install hxn-window --always
+      - name: Build and run on Ash
+        run: |
+          hxn build hl
+          dir=target/hxn/gpu_d3d12/hl
+          haxe "$dir/build.hxml" -lib hxn-window -cp examples/present -main Main -hl "$dir/present.hl"
+          (cd "$dir" && ash present.hl) | tee present.txt
+          grep -q '^present: 3 frames' present.txt
