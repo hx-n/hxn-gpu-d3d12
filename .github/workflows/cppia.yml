@@ -1,0 +1,32 @@
+name: CPPIA
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    name: CPPIA, Windows
+    # WARP, Direct3D 12's software rasterizer, gives the runner a device.
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ./.github/actions/setup
+        with:
+          runtime: cppia
+      # Fails without a Direct3D 12 device, rather than passing on the line the check
+      # prints without one.
+      - run: |
+          hxn check cppia 2>&1 | tee check.txt
+          grep -q '^compute: 64 values' check.txt
+          grep -q '^render: 4x4 pixels' check.txt

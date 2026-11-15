@@ -1,0 +1,11 @@
+{
+  "name": "hxn-gpu-d3d12",
+  "version": "0.1.0",
+  "description": "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers",
+  "url": "https://github.com/hx-n/hxn-gpu-d3d12",
+  "license": "Apache",
+  "tags": ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native"],
+  "contributors": ["darmie", "rayzor"],
+  "releasenote": "First release: adapters including WARP, devices, buffers and textures, root signatures of root descriptors, compute and graphics pipeline states from HLSL, command lists with resource barriers, and execution with fences.",
+  "dependencies": { "hxn": "0.3.2" }
+}

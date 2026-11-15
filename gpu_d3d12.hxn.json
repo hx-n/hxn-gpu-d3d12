@@ -1,0 +1,417 @@
+{
+  "hxn": 1,
+  "library": "gpu_d3d12",
+  "package": "gpu.d3d12",
+  "enums": [
+    {
+      "name": "Format",
+      "docs": "A texture or vertex attribute format, DXGI's values.",
+      "variants": [{ "name": "Rgba32Float", "value": 2 }, { "name": "Rgb32Float", "value": 6 }, { "name": "Rgba16Float", "value": 10 }, { "name": "Rg32Float", "value": 16 }, { "name": "Rgba8Unorm", "value": 28 }, { "name": "Rgba8UnormSrgb", "value": 29 }, { "name": "D32Float", "value": 40 }, { "name": "R32Float", "value": 41 }, { "name": "R32Uint", "value": 42 }, { "name": "R32Sint", "value": 43 }, { "name": "R8Unorm", "value": 61 }, { "name": "Bgra8Unorm", "value": 87 }, { "name": "Bgra8UnormSrgb", "value": 91 }]
+    },
+    {
+      "name": "Heap",
+      "docs": "Where a buffer's memory is: GPU-only, CPU-written for the GPU to read, or GPU-written for the\nCPU to read. Direct3D 12's values.",
+      "variants": [{ "name": "Default", "value": 1 }, { "name": "Upload", "value": 2 }, { "name": "Readback", "value": 3 }]
+    },
+    {
+      "name": "State",
+      "docs": "Resource state bits, Direct3D 12's values, or-ed together.",
+      "variants": [{ "name": "Common", "value": 0 }, { "name": "VertexAndConstantBuffer", "value": 1 }, { "name": "IndexBuffer", "value": 2 }, { "name": "RenderTarget", "value": 4 }, { "name": "UnorderedAccess", "value": 8 }, { "name": "DepthWrite", "value": 16 }, { "name": "DepthRead", "value": 32 }, { "name": "NonPixelShaderResource", "value": 64 }, { "name": "PixelShaderResource", "value": 128 }, { "name": "CopyDest", "value": 1024 }, { "name": "CopySource", "value": 2048 }, { "name": "GenericRead", "value": 2755 }]
+    },
+    {
+      "name": "TextureUsage",
+      "docs": "`TextureDescriptor.usage` bits, Direct3D 12's resource flags.",
+      "variants": [{ "name": "RenderTarget", "value": 1 }, { "name": "DepthStencil", "value": 2 }, { "name": "UnorderedAccess", "value": 4 }]
+    },
+    {
+      "name": "ParameterKind",
+      "docs": "A root parameter's kind: a root descriptor for a buffer. Direct3D 12's values.",
+      "variants": [{ "name": "ConstantBuffer", "value": 2 }, { "name": "ShaderResource", "value": 3 }, { "name": "UnorderedAccess", "value": 4 }]
+    },
+    {
+      "name": "Visibility",
+      "variants": [{ "name": "All", "value": 0 }, { "name": "Vertex", "value": 1 }, { "name": "Pixel", "value": 5 }]
+    },
+    {
+      "name": "Topology",
+      "variants": [{ "name": "PointList", "value": 1 }, { "name": "LineList", "value": 2 }, { "name": "LineStrip", "value": 3 }, { "name": "TriangleList", "value": 4 }, { "name": "TriangleStrip", "value": 5 }]
+    }
+  ],
+  "records": [
+    {
+      "name": "TextureDescriptor",
+      "fields": [
+        { "name": "width", "type": "i32" },
+        { "name": "height", "type": "i32" },
+        { "name": "format", "type": "Format" },
+        { "name": "usage", "type": "i32" }
+      ]
+    },
+    {
+      "name": "RootParameter",
+      "docs": "One root descriptor: `register` and `space` are hxnsl's `HLSL_SLOTS` ones.",
+      "fields": [
+        { "name": "kind", "type": "ParameterKind" },
+        { "name": "register", "type": "i32" },
+        { "name": "space", "type": "i32" },
+        { "name": "visibility", "type": "Visibility" }
+      ]
+    },
+    {
+      "name": "VertexAttribute",
+      "docs": "One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL\nsemantic `LOC<location>`.",
+      "fields": [
+        { "name": "location", "type": "i32" },
+        { "name": "slot", "type": "i32" },
+        { "name": "format", "type": "Format" },
+        { "name": "offset", "type": "i32" }
+      ]
+    }
+  ],
+  "interfaces": [
+    {
+      "name": "Factory",
+      "docs": "The DXGI factory: the adapters, WARP included.",
+      "methods": [
+        {
+          "name": "create",
+          "kind": "static",
+          "params": [],
+          "returns": "Factory",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "adapter_names",
+          "docs": "The name of each adapter, in the order `createDevice` takes them.",
+          "kind": "method",
+          "params": [],
+          "returns": "list<str>",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "is_software",
+          "docs": "Whether adapter `index` is a software one, such as WARP.",
+          "kind": "method",
+          "params": [{ "name": "index", "type": "i32" }],
+          "returns": "bool",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "create_device",
+          "docs": "A device on adapter `index`, at feature level 11.0, with one direct queue.",
+          "kind": "method",
+          "params": [{ "name": "index", "type": "i32" }],
+          "returns": "Device",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "name": "Device",
+      "docs": "A device and its direct queue; every other object comes from one.",
+      "methods": [
+        {
+          "name": "create_buffer",
+          "docs": "A buffer of `size` bytes in `heap`, in the state each heap requires (generic read for\nupload, copy destination for readback, `initial` for default), allowing unordered\naccess when `unordered` is true.",
+          "kind": "method",
+          "params": [{ "name": "size", "type": "i64" }, { "name": "heap", "type": "Heap" }, { "name": "initial", "type": "i32" }, { "name": "unordered", "type": "bool" }],
+          "returns": "Buffer",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_buffer_with",
+          "docs": "An upload buffer holding a copy of `bytes`.",
+          "kind": "method",
+          "params": [{ "name": "bytes", "type": "bytes" }],
+          "returns": "Buffer",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_texture",
+          "docs": "A 2D texture in the default heap, in the common state, with a render target view when\nits usage includes `TextureUsage.RenderTarget`.",
+          "kind": "method",
+          "params": [{ "name": "descriptor", "type": "TextureDescriptor" }],
+          "returns": "Texture",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "compile",
+          "docs": "HLSL `source` compiled to shader model 5.1 bytecode for `entry` and `profile` (`cs_5_1`,\n`vs_5_1`, `ps_5_1`), with the compiler that ships with Windows.",
+          "kind": "method",
+          "params": [{ "name": "source", "type": "str" }, { "name": "entry", "type": "str" }, { "name": "profile", "type": "str" }],
+          "returns": "bytes",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_root_signature",
+          "docs": "A root signature of root descriptors, in parameter order.",
+          "kind": "method",
+          "params": [{ "name": "parameters", "type": "list<RootParameter>" }],
+          "returns": "RootSignature",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_compute_pipeline",
+          "docs": "A compute pipeline state from compute shader bytecode.",
+          "kind": "method",
+          "params": [{ "name": "bytecode", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }],
+          "returns": "PipelineState",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_graphics_pipeline",
+          "docs": "A graphics pipeline state rendering into one target of `format`, with no blending, no\nculling and no depth.",
+          "kind": "method",
+          "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "format", "type": "Format" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }],
+          "returns": "PipelineState",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "create_command_list",
+          "docs": "A direct command list and its allocator, open for recording.",
+          "kind": "method",
+          "params": [],
+          "returns": "CommandList",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "execute_and_wait",
+          "docs": "Closes and executes `commands`, and waits for the GPU to finish them.",
+          "kind": "method",
+          "params": [{ "name": "commands", "type": "CommandList", "borrow": "exclusive" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": true
+        },
+        {
+          "name": "execute",
+          "docs": "Closes and executes `commands`. The future settles when the GPU has finished them.",
+          "kind": "method",
+          "params": [{ "name": "commands", "type": "CommandList", "borrow": "exclusive" }],
+          "returns": "future<void>",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "name": "Buffer",
+      "docs": "A buffer. An upload or readback buffer can be written or read by the CPU.",
+      "methods": [
+        {
+          "name": "size",
+          "kind": "method",
+          "params": [],
+          "returns": "i64",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "write",
+          "docs": "Copies `bytes` into an upload buffer at `offset`.",
+          "kind": "method",
+          "params": [{ "name": "offset", "type": "i64" }, { "name": "bytes", "type": "bytes" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "read",
+          "docs": "`length` bytes of a readback buffer from `offset`.",
+          "kind": "method",
+          "params": [{ "name": "offset", "type": "i64" }, { "name": "length", "type": "i64" }],
+          "returns": "bytes",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "name": "Texture",
+      "docs": "A 2D texture in the default heap.",
+      "methods": [
+        {
+          "name": "width",
+          "kind": "method",
+          "params": [],
+          "returns": "i32",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "height",
+          "kind": "method",
+          "params": [],
+          "returns": "i32",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "copy_pitch",
+          "docs": "The bytes between rows when `CommandList.copyTextureToBuffer` copies it: its row,\nrounded up to Direct3D 12's 256-byte alignment.",
+          "kind": "method",
+          "params": [],
+          "returns": "i32",
+          "fallible": false,
+          "blocking": false
+        }
+      ]
+    },
+    {
+      "name": "RootSignature",
+      "methods": []
+    },
+    {
+      "name": "PipelineState",
+      "methods": []
+    },
+    {
+      "name": "CommandList",
+      "docs": "Records commands until a `Device.execute`. Not thread-safe: its methods take `&mut self`.",
+      "methods": [
+        {
+          "name": "set_compute_root_signature",
+          "kind": "mutating",
+          "params": [{ "name": "signature", "type": "RootSignature" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_graphics_root_signature",
+          "kind": "mutating",
+          "params": [{ "name": "signature", "type": "RootSignature" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_pipeline_state",
+          "kind": "mutating",
+          "params": [{ "name": "state", "type": "PipelineState" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_compute_root_buffer",
+          "docs": "Binds `buffer` to root parameter `index` of the compute root signature, as the kind of\ndescriptor that parameter is.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "kind", "type": "ParameterKind" }, { "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_graphics_root_buffer",
+          "docs": "Binds `buffer` to root parameter `index` of the graphics root signature.",
+          "kind": "mutating",
+          "params": [{ "name": "index", "type": "i32" }, { "name": "kind", "type": "ParameterKind" }, { "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "dispatch",
+          "kind": "mutating",
+          "params": [{ "name": "x", "type": "i32" }, { "name": "y", "type": "i32" }, { "name": "z", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "transition_buffer",
+          "docs": "Moves `buffer` from state `before` to `after` (`State` bits).",
+          "kind": "mutating",
+          "params": [{ "name": "buffer", "type": "Buffer" }, { "name": "before", "type": "i32" }, { "name": "after", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "transition_texture",
+          "docs": "Moves `texture` from state `before` to `after` (`State` bits).",
+          "kind": "mutating",
+          "params": [{ "name": "texture", "type": "Texture" }, { "name": "before", "type": "i32" }, { "name": "after", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "uav_barrier",
+          "docs": "Waits for unordered-access writes to `buffer` before later unordered access to it.",
+          "kind": "mutating",
+          "params": [{ "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_render_target",
+          "docs": "Renders into `target`, which must be in the render target state, clearing it to\n`red`, `green`, `blue`, `alpha`, and sets the viewport and scissor to all of it.",
+          "kind": "mutating",
+          "params": [{ "name": "target", "type": "Texture" }, { "name": "red", "type": "f64" }, { "name": "green", "type": "f64" }, { "name": "blue", "type": "f64" }, { "name": "alpha", "type": "f64" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_topology",
+          "kind": "mutating",
+          "params": [{ "name": "topology", "type": "Topology" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_vertex_buffer",
+          "docs": "Binds all of `buffer` to input slot `slot`, `stride` bytes per vertex.",
+          "kind": "mutating",
+          "params": [{ "name": "slot", "type": "i32" }, { "name": "buffer", "type": "Buffer" }, { "name": "stride", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "draw",
+          "docs": "Draws `count` vertices from `first`, `instances` times.",
+          "kind": "mutating",
+          "params": [{ "name": "count", "type": "i32" }, { "name": "instances", "type": "i32" }, { "name": "first", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "copy_buffer",
+          "docs": "Copies all of `source` into `destination`, which must be at least as large.",
+          "kind": "mutating",
+          "params": [{ "name": "destination", "type": "Buffer" }, { "name": "source", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "copy_texture_to_buffer",
+          "docs": "Copies all of `texture`, in the copy source state, into `buffer`, rows\n`texture.copyPitch()` bytes apart.",
+          "kind": "mutating",
+          "params": [{ "name": "texture", "type": "Texture" }, { "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    }
+  ]
+}

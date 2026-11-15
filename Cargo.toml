@@ -1,0 +1,37 @@
+[package]
+name = "hxn-gpu-d3d12"
+version = "0.1.0"
+edition = "2024"
+description = "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers"
+repository = "https://github.com/hx-n/hxn-gpu-d3d12"
+license = "Apache-2.0"
+keywords = ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native"]
+
+[lib]
+name = "hxn_gpu_d3d12"
+
+[package.metadata.hxn]
+# The native library is `gpu_d3d12.hdll` or `gpu_d3d12_cpp.lib`.
+library = "gpu_d3d12"
+haxelib = "hxn-gpu-d3d12"
+contributors = ["darmie", "rayzor"]
+releasenote = "First release: adapters including WARP, devices, buffers and textures, root signatures of root descriptors, compute and graphics pipeline states from HLSL, command lists with resource barriers, and execution with fences."
+# The check `hxn check` and `hxn run` build.
+haxe = "examples/check"
+haxe-flags = ["-lib", "hxnsl"]
+# Registers hxnsl's HLSL target for gpu.d3d12.Shader, from sources/.
+init = ["gpu.d3d12.Shaders.register()"]
+
+[dependencies]
+hxn = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.2" }
+hxn-future = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.2" }
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_Foundation",
+    "Win32_Graphics_Direct3D",
+    "Win32_Graphics_Direct3D_Fxc",
+    "Win32_Graphics_Direct3D12",
+    "Win32_Graphics_Dxgi",
+    "Win32_Graphics_Dxgi_Common",
+] }
