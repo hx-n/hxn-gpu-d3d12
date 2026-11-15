@@ -6,6 +6,6 @@
   "license": "Apache",
   "tags": ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native"],
   "contributors": ["darmie", "rayzor"],
-  "releasenote": "First release: adapters including WARP, devices, buffers and textures, root signatures of root descriptors, compute and graphics pipeline states from HLSL, command lists with resource barriers, and execution with fences.",
+  "releasenote": "First release: adapters including WARP, buffers and textures, root signatures with root descriptors and descriptor tables, samplers, compute and graphics pipeline states from DXIL compiled at build time or HLSL, resource transitions and enhanced barriers, swap chains on a window, and execution with fences.",
   "dependencies": { "hxn": "0.3.2" }
 }
