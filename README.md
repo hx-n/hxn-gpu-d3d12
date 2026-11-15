@@ -5,17 +5,16 @@
 [![hxcpp](https://github.com/hx-n/hxn-gpu-d3d12/actions/workflows/hxcpp.yml/badge.svg)](https://github.com/hx-n/hxn-gpu-d3d12/actions/workflows/hxcpp.yml)
 [![CPPIA](https://github.com/hx-n/hxn-gpu-d3d12/actions/workflows/cppia.yml/badge.svg)](https://github.com/hx-n/hxn-gpu-d3d12/actions/workflows/cppia.yml)
 
-Direct3D 12 for Haxe on Ash, HashLink, hxcpp and CPPIA, on Windows. It keeps
-Direct3D 12's own conventions: a DXGI factory finds the adapters, a device
-makes resources, root signatures and pipeline states, and command lists
-record work a program executes on the device's queue. Synchronization is
-explicit: the program records resource state transitions, or enhanced
-barriers where the device supports them. A swap chain presents to a window.
+Direct3D 12 bindings for Haxe on Ash, HashLink, hxcpp and CPPIA, on Windows.
+The API follows Direct3D 12: a DXGI `Factory` and its adapters, `Device`,
+resources, root signatures, pipeline states, command lists and swap chains.
+Synchronization is explicit: you record resource state transitions, or
+enhanced barriers where the device supports them.
 
-Shaders come from [hxnsl](https://github.com/hx-n/hxnsl), which writes HLSL
-at compile time and reports each binding's register in `HLSL_SLOTS`.
-When DXC is installed, each entry point is also compiled to DXIL at compile time.
-`RootLayout` builds a root signature from the registers.
+Shaders come from [hxnsl](https://github.com/hx-n/hxnsl), which generates HLSL
+at compile time and lists each binding's register in `HLSL_SLOTS`. With DXC
+installed, each entry point is also compiled to DXIL at compile time.
+`RootLayout` builds the root signature from the registers.
 
 ```haxe
 import gpu.d3d12.*;
