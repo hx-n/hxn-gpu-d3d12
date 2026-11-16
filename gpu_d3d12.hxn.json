@@ -1,7 +1,7 @@
 {
   "hxn": 1,
   "library": "gpu_d3d12",
-  "package": "gpu.d3d12",
+  "package": "hxn.gpu.d3d12",
   "enums": [
     {
       "name": "Format",

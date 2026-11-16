@@ -1,5 +1,5 @@
-import gpu.d3d12.*;
-import gpu.d3d12.Shaders as D3D12Shaders;
+import hxn.gpu.d3d12.*;
+import hxn.gpu.d3d12.Shaders as D3D12Shaders;
 import haxe.io.Bytes;
 import Shaders;
 

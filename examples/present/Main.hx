@@ -1,6 +1,6 @@
-import gpu.d3d12.*;
-import window.Window;
-import window.WindowAttributes;
+import hxn.gpu.d3d12.*;
+import hxn.window.Window;
+import hxn.window.WindowAttributes;
 
 /**
 	Presents to a window: a swap chain on an hxn-window window's HWND,

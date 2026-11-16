@@ -18,7 +18,7 @@ use windows::Win32::Graphics::Dxgi::Common::*;
 use windows::Win32::Graphics::Dxgi::*;
 use windows::core::{Interface, PCSTR};
 
-hxn::package!("gpu.d3d12");
+hxn::package!("hxn.gpu.d3d12");
 
 /// A free-threaded Direct3D 12 or DXGI object, which Microsoft documents as usable from any
 /// thread. Command lists are the exception, and their methods take `&mut self`.

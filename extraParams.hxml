@@ -1,2 +1,2 @@
 --macro hxn.Bind.lib("gpu_d3d12")
---macro gpu.d3d12.Shaders.register()
+--macro hxn.gpu.d3d12.Shaders.register()

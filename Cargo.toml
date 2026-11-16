@@ -1,6 +1,6 @@
 [package]
 name = "hxn-gpu-d3d12"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers"
 repository = "https://github.com/hx-n/hxn-gpu-d3d12"
@@ -15,16 +15,16 @@ name = "hxn_gpu_d3d12"
 library = "gpu_d3d12"
 haxelib = "hxn-gpu-d3d12"
 contributors = ["darmie", "rayzor"]
-releasenote = "First release: adapters including WARP, buffers and textures, root signatures with root descriptors and descriptor tables, samplers, compute and graphics pipeline states from DXIL compiled at build time or HLSL, resource transitions and enhanced barriers, swap chains on a window, and execution with fences."
+releasenote = "Moves to the hxn.gpu.d3d12 package, on hxn 0.3.5."
 # The check `hxn check` and `hxn run` build.
 haxe = "examples/check"
 haxe-flags = ["-lib", "hxnsl"]
-# Registers hxnsl's HLSL target for gpu.d3d12.Shader, from sources/.
-init = ["gpu.d3d12.Shaders.register()"]
+# Registers hxnsl's HLSL target for hxn.gpu.d3d12.Shader, from sources/.
+init = ["hxn.gpu.d3d12.Shaders.register()"]
 
 [dependencies]
-hxn = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.2" }
-hxn-future = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.2" }
+hxn = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.5" }
+hxn-future = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.5" }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [

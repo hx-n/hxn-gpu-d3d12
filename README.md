@@ -17,11 +17,11 @@ installed, each entry point is also compiled to DXIL at compile time.
 `RootLayout` builds the root signature from the registers.
 
 ```haxe
-import gpu.d3d12.*;
+import hxn.gpu.d3d12.*;
 
 var factory = Factory.create();
 var device = factory.createDevice(0);              // factory.adapterNames(), WARP included
-var bytecode = gpu.d3d12.Shaders.bytecode(device, Tripled.dxil("compute_main"), Tripled.HLSL, "compute_main", "compute");
+var bytecode = hxn.gpu.d3d12.Shaders.bytecode(device, Tripled.dxil("compute_main"), Tripled.HLSL, "compute_main", "compute");
 var layout = new RootLayout(Tripled.HLSL_SLOTS, Tripled.LAYOUT);
 var signature = device.createRootSignature(layout.parameters);
 var pipeline = device.createComputePipeline(bytecode, signature);
@@ -60,7 +60,7 @@ loads.
 
 ## Classes
 
-All in the package `gpu.d3d12`:
+All in the package `hxn.gpu.d3d12`:
 
 | Class | |
 |---|---|
@@ -97,12 +97,12 @@ kept until then. `executeAndWait` is the blocking form.
 
 ## Shaders from hxnsl
 
-A shader for this driver implements `gpu.d3d12.Shader`, which extends
+A shader for this driver implements `hxn.gpu.d3d12.Shader`, which extends
 `hxnsl.Shader` and gets hxnsl's `HLSL`, `HLSL_SLOTS` and `LAYOUT`.
 
 - `Shader.dxil(entry)` is the entry point's DXIL, shader model 6.0, compiled
   by DXC at compile time, or null without DXC.
-  `gpu.d3d12.Shaders.bytecode(device, Shader.dxil(entry), Shader.HLSL, entry, stage)`
+  `hxn.gpu.d3d12.Shaders.bytecode(device, Shader.dxil(entry), Shader.HLSL, entry, stage)`
   returns it, or else compiles the HLSL to shader model 5.1 with the
   compiler that ships with Windows. The entry points are `vertex_main`,
   `fragment_main` and `compute_main`.
