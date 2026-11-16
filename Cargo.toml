@@ -5,7 +5,7 @@ edition = "2024"
 description = "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers"
 repository = "https://github.com/hx-n/hxn-gpu-d3d12"
 license = "Apache-2.0"
-keywords = ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native"]
+keywords = ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native", "hxcpp", "hashlink", "cross"]
 
 [lib]
 name = "hxn_gpu_d3d12"
