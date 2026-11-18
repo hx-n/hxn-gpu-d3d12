@@ -1,6 +1,6 @@
 [package]
 name = "hxn-gpu-d3d12"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers"
 repository = "https://github.com/hx-n/hxn-gpu-d3d12"
@@ -15,7 +15,7 @@ name = "hxn_gpu_d3d12"
 library = "gpu_d3d12"
 haxelib = "hxn-gpu-d3d12"
 contributors = ["darmie", "rayzor"]
-releasenote = "Moves to the hxn.gpu.d3d12 package, on hxn 0.3.5."
+releasenote = "Use hxn 0.3.9 shared logging with application-owned filtering and sinks; retain pinned dependency redistribution notices."
 # The check `hxn check` and `hxn run` build.
 haxe = "examples/check"
 haxe-flags = ["-lib", "hxnsl"]
@@ -23,8 +23,8 @@ haxe-flags = ["-lib", "hxnsl"]
 init = ["hxn.gpu.d3d12.Shaders.register()"]
 
 [dependencies]
-hxn = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.5" }
-hxn-future = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.5" }
+hxn = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.9" }
+hxn-future = { git = "https://github.com/hx-n/hxn.git", tag = "v0.3.9" }
 
 [target.'cfg(windows)'.dependencies]
 windows = { version = "0.62", features = [

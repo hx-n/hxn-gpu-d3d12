@@ -295,6 +295,7 @@ pub struct Factory {
 #[hxn::methods]
 impl Factory {
     pub fn create() -> Result<Factory, String> {
+        hxn::log::debug!(target: "hxn.gpu.d3d12", "opening a Direct3D 12 factory");
         let factory: IDXGIFactory4 = unsafe { CreateDXGIFactory2(DXGI_CREATE_FACTORY_FLAGS(0)) }
             .map_err(|e| failed("creating the DXGI factory", e))?;
         let mut adapters = Vec::new();

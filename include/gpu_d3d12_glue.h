@@ -6,6 +6,14 @@
 
 namespace gpu_d3d12_glue {
 
+inline void log_level(int level) { hxn_gpu_d3d12_log_level(level); }
+inline ::Array<unsigned char> log_take() {
+    hxn_buf out = HXN_BUF_EMPTY, err = HXN_BUF_EMPTY;
+    hxn::check(hxn_gpu_d3d12_log_take(&out, &err), err);
+    if (!out.len) { hxn_buf_free(&out); return null(); }
+    return hxn::take_bytes(out);
+}
+
 // What a finalizer calls: it frees, and touches nothing of the runtime's.
 inline void release(void *self) {
 	hxn_gpu_d3d12_release((hxn_handle *)self);

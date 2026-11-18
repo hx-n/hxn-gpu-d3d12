@@ -2,9 +2,10 @@
 package hxn.gpu.d3d12;
 
 /** Records commands until a `Device.execute`. Not thread-safe: its methods take `&mut self`. **/
+@:build(hxn.Log.bind())
 class CommandList {
 	@:noCompletion public var hxnRaw:hxn.Handle;
-	@:noCompletion static final hxnMemory = HxnGpuD3d12Memory.meter;
+	@:keep @:noCompletion static final hxnMemory = HxnGpuD3d12Memory.meter;
 
 	/** An object for a value the library returned. **/
 	@:noCompletion public static function hxnAdopt(hxnRaw:hxn.Handle):CommandList {

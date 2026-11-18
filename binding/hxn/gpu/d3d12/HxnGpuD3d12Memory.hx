@@ -7,5 +7,6 @@ package hxn.gpu.d3d12;
 	a delivery does.
 **/
 class HxnGpuD3d12Memory {
+	@:keep static final logging = hxn.Log.attach(level -> HxnGpuD3d12Native.log_level(level), () -> HxnGpuD3d12Native.log_take());
 	public static final meter = new hxn.Gc.Meter(() -> HxnGpuD3d12Native.memory_held(), () -> HxnGpuD3d12Native.memory_wanted());
 }
