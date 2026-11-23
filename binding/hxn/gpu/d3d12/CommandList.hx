@@ -76,8 +76,8 @@ class CommandList {
 
 	/**
 		Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must
-		be in the copy destination state. Rows in `buffer` are `width` pixels rounded up to
-		256 bytes apart.
+		be in the copy destination state. Each row in `buffer` starts at a multiple of 256 bytes:
+		the length of a row, `width` pixels, is rounded up to the next multiple of 256.
 	**/
 	public function copyBufferToTextureRegion(texture:Texture, buffer:Buffer, x:Int, y:Int, width:Int, height:Int):Void
 		HxnGpuD3d12Native.command_list_copy_buffer_to_texture_region(hxnRaw, texture == null ? null : texture.hxnRaw, buffer == null ? null : buffer.hxnRaw, x, y, width, height);
@@ -98,9 +98,9 @@ class CommandList {
 		HxnGpuD3d12Native.command_list_uav_barrier(hxnRaw, buffer == null ? null : buffer.hxnRaw);
 
 	/**
-		Renders into `target`, which must be in the render target state, clearing it to
-		`red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the
-		viewport and scissor to all of it.
+		Renders into `target`, which must be in the render target state. The pass clears
+		`target` to `red`, `green`, `blue`, `alpha`, or with `keep` draws over what it holds. It
+		also sets the viewport and the scissor to the whole target.
 	**/
 	public function setRenderTarget(target:Texture, keep:Bool, red:Float, green:Float, blue:Float, alpha:Float):Void
 		HxnGpuD3d12Native.command_list_set_render_target(hxnRaw, target == null ? null : target.hxnRaw, keep, red, green, blue, alpha);
@@ -109,8 +109,8 @@ class CommandList {
 		HxnGpuD3d12Native.command_list_set_topology(hxnRaw, topology);
 
 	/**
-		Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or
-		instance.
+		Binds `buffer`, from `offset` bytes in, to input slot `slot`, with `stride` bytes for each
+		vertex or instance.
 	**/
 	public function setVertexBuffer(slot:Int, buffer:Buffer, stride:Int, offset:haxe.Int64):Void
 		HxnGpuD3d12Native.command_list_set_vertex_buffer(hxnRaw, slot, buffer == null ? null : buffer.hxnRaw, stride, offset);

@@ -2,8 +2,9 @@
 package hxn.gpu.d3d12;
 
 /**
-	One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL
-	semantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.
+	Each vertex attribute has the shader's `location` (hxnsl's `INPUT_<name>`), and its HLSL
+	semantic is `LOC<location>`. With `per_instance`, its input slot advances once for each
+	instance.
 **/
 @:structInit class VertexAttribute {
 	public var location:Int;

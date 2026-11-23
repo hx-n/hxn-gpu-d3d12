@@ -255,8 +255,9 @@ pub enum Layout {
     CopyDest = 8,
 }
 
-/// One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL
-/// semantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.
+/// Each vertex attribute has the shader's `location` (hxnsl's `INPUT_<name>`), and its HLSL
+/// semantic is `LOC<location>`. With `per_instance`, its input slot advances once for each
+/// instance.
 #[hxn::data]
 pub struct VertexAttribute {
     pub location: i32,
@@ -286,9 +287,9 @@ impl Topology {
     }
 }
 
-/// How a pipeline blends what it draws into its target. The factors are hxn-gpu's shared
-/// codes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations from 0 `Add` to 4 `Max`.
-/// With `enabled` false, the pipeline writes its color as it is.
+/// `Blend` sets how a pipeline blends what it draws into its target. The factors are hxn-gpu's
+/// shared codes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations are the codes from 0
+/// `Add` to 4 `Max`. When `enabled` is false, the pipeline writes its color as it is.
 #[hxn::data]
 pub struct Blend {
     pub enabled: bool,
@@ -300,9 +301,9 @@ pub struct Blend {
     pub alpha_destination: i32,
 }
 
-// The D3D12 factor of each shared code, in the order of hxn-gpu's `BlendFactor`. Direct3D
-// takes no color factor in the alpha half, so for alpha each color factor becomes the
-// matching alpha factor, as WebGPU defines it.
+// Maps each shared factor code to its D3D12 factor, in the order of hxn-gpu's `BlendFactor`.
+// Direct3D takes no color factor for the alpha, so for the alpha each color factor becomes
+// the matching alpha factor, as WebGPU defines it.
 fn blend_factor(code: i32, alpha: bool, what: &str) -> Result<D3D12_BLEND, String> {
     Ok(match (code, alpha) {
         (0, _) => D3D12_BLEND_ZERO,
@@ -685,8 +686,8 @@ impl Device {
         })
     }
 
-    /// A graphics pipeline state rendering into one target of `format`, blending as `blend`
-    /// describes, with no culling and no depth.
+    /// Creates a graphics pipeline state that renders into one target of `format`, blends as
+    /// `blend` describes, and has no culling and no depth.
     #[allow(clippy::too_many_arguments)]
     pub fn create_graphics_pipeline(
         &self,
@@ -1456,8 +1457,8 @@ impl CommandList {
     }
 
     /// Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must
-    /// be in the copy destination state. Rows in `buffer` are `width` pixels rounded up to
-    /// 256 bytes apart.
+    /// be in the copy destination state. Each row in `buffer` starts at a multiple of 256 bytes:
+    /// the length of a row, `width` pixels, is rounded up to the next multiple of 256.
     #[allow(clippy::too_many_arguments)]
     pub fn copy_buffer_to_texture_region(
         &mut self,
@@ -1561,9 +1562,9 @@ impl CommandList {
         Ok(())
     }
 
-    /// Renders into `target`, which must be in the render target state, clearing it to
-    /// `red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the
-    /// viewport and scissor to all of it.
+    /// Renders into `target`, which must be in the render target state. The pass clears
+    /// `target` to `red`, `green`, `blue`, `alpha`, or with `keep` draws over what it holds. It
+    /// also sets the viewport and the scissor to the whole target.
     pub fn set_render_target(
         &mut self,
         target: &Texture,
@@ -1616,8 +1617,8 @@ impl CommandList {
         Ok(())
     }
 
-    /// Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or
-    /// instance.
+    /// Binds `buffer`, from `offset` bytes in, to input slot `slot`, with `stride` bytes for each
+    /// vertex or instance.
     pub fn set_vertex_buffer(
         &mut self,
         slot: i32,

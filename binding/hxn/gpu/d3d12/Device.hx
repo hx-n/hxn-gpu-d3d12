@@ -66,8 +66,8 @@ class Device {
 		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_compute_pipeline(hxnRaw, bytecode, signature == null ? null : signature.hxnRaw));
 
 	/**
-		A graphics pipeline state rendering into one target of `format`, blending as `blend`
-		describes, with no culling and no depth.
+		Creates a graphics pipeline state that renders into one target of `format`, blends as
+		`blend` describes, and has no culling and no depth.
 	**/
 	public function createGraphicsPipeline(vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:RootSignature, format:Format, topology:Topology, attributes:Array<VertexAttribute>, blend:Blend):PipelineState {
 		var attributesOut = new haxe.io.BytesBuffer();

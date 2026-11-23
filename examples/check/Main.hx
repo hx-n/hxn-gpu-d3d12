@@ -103,7 +103,10 @@ class Main {
 		});
 	}
 
-	/** Reads a 4x4 Rgba8 target back, and checks every pixel is `expected`, within `tolerance`. **/
+	/**
+		Reads a 4x4 Rgba8 target back and checks that every pixel is `expected`, within
+		`tolerance`.
+	**/
 	static function readTarget(device:Device, commands:CommandList, target:Texture, expected:Array<Int>, label:String, tolerance = 0) {
 		var size = target.width();
 		var pitch = target.copyPitch();
@@ -122,7 +125,7 @@ class Main {
 		readback.close();
 	}
 
-	// Blending is off: the quad's color replaces the target's.
+	// Blending is off, so the quad's color replaces the target's.
 	static final REPLACE:Blend = {
 		enabled: false,
 		colorOperation: 0,
@@ -133,9 +136,9 @@ class Main {
 		alphaDestination: 0
 	};
 
-	// Straight alpha: color = source * source alpha + destination * (1 - source alpha),
-	// and alpha = source + destination * (1 - source alpha). The shared factor codes 4
-	// (SrcAlpha), 5 (OneMinusSrcAlpha) and 1 (One), and the operation 0 (Add).
+	// Straight alpha blends with color = source * source alpha + destination * (1 - source
+	// alpha) and alpha = source + destination * (1 - source alpha). It uses the shared factor
+	// codes 4 (SrcAlpha), 5 (OneMinusSrcAlpha) and 1 (One), and the operation 0 (Add).
 	static final ALPHA:Blend = {
 		enabled: true,
 		colorOperation: 0,
@@ -149,12 +152,13 @@ class Main {
 	static function render(device:Device) {
 		var tint = [0.25, 0.5, 0.75, 1.0];
 		quad(device, tint, [0.0, 0.0, 0.0, 0.0], REPLACE, [for (c in tint) Math.round(c * 255)], "render", 0);
-		// A half-transparent red quad over a blue target: half red, half blue, opaque.
+		// The check draws a half-transparent red quad over a blue target. The result is half
+		// red, half blue and opaque.
 		quad(device, [1.0, 0.0, 0.0, 0.5], [0.0, 0.0, 1.0, 1.0], ALPHA, [128, 0, 128, 255], "blend", 1);
 	}
 
 	// Draws a quad of `tint` into a 4x4 target cleared to `clear`, with `blend`, and checks
-	// every pixel is `expected` within `tolerance`.
+	// that every pixel is `expected`, within `tolerance`.
 	static function quad(device:Device, tint:Array<Float>, clear:Array<Float>, blend:Blend, expected:Array<Int>, label:String, tolerance:Int) {
 		var vertex = D3D12Shaders.bytecode(device, Tinted.dxil("vertex_main"), Tinted.HLSL, "vertex_main", "vertex");
 		var pixel = D3D12Shaders.bytecode(device, Tinted.dxil("fragment_main"), Tinted.HLSL, "fragment_main", "fragment");

@@ -104,7 +104,7 @@
     },
     {
       "name": "VertexAttribute",
-      "docs": "One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL\nsemantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.",
+      "docs": "Each vertex attribute has the shader's `location` (hxnsl's `INPUT_<name>`), and its HLSL\nsemantic is `LOC<location>`. With `per_instance`, its input slot advances once for each\ninstance.",
       "fields": [
         { "name": "location", "type": "i32" },
         { "name": "slot", "type": "i32" },
@@ -115,7 +115,7 @@
     },
     {
       "name": "Blend",
-      "docs": "How a pipeline blends what it draws into its target. The factors are hxn-gpu's shared\ncodes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations from 0 `Add` to 4 `Max`.\nWith `enabled` false, the pipeline writes its color as it is.",
+      "docs": "`Blend` sets how a pipeline blends what it draws into its target. The factors are hxn-gpu's\nshared codes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations are the codes from 0\n`Add` to 4 `Max`. When `enabled` is false, the pipeline writes its color as it is.",
       "fields": [
         { "name": "enabled", "type": "bool" },
         { "name": "color_operation", "type": "i32" },
@@ -238,7 +238,7 @@
         },
         {
           "name": "create_graphics_pipeline",
-          "docs": "A graphics pipeline state rendering into one target of `format`, blending as `blend`\ndescribes, with no culling and no depth.",
+          "docs": "Creates a graphics pipeline state that renders into one target of `format`, blends as\n`blend` describes, and has no culling and no depth.",
           "kind": "method",
           "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "format", "type": "Format" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }, { "name": "blend", "type": "Blend" }],
           "returns": "PipelineState",
@@ -531,7 +531,7 @@
         },
         {
           "name": "copy_buffer_to_texture_region",
-          "docs": "Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must\nbe in the copy destination state. Rows in `buffer` are `width` pixels rounded up to\n256 bytes apart.",
+          "docs": "Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must\nbe in the copy destination state. Each row in `buffer` starts at a multiple of 256 bytes:\nthe length of a row, `width` pixels, is rounded up to the next multiple of 256.",
           "kind": "mutating",
           "params": [{ "name": "texture", "type": "Texture" }, { "name": "buffer", "type": "Buffer" }, { "name": "x", "type": "i32" }, { "name": "y", "type": "i32" }, { "name": "width", "type": "i32" }, { "name": "height", "type": "i32" }],
           "returns": "void",
@@ -575,7 +575,7 @@
         },
         {
           "name": "set_render_target",
-          "docs": "Renders into `target`, which must be in the render target state, clearing it to\n`red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the\nviewport and scissor to all of it.",
+          "docs": "Renders into `target`, which must be in the render target state. The pass clears\n`target` to `red`, `green`, `blue`, `alpha`, or with `keep` draws over what it holds. It\nalso sets the viewport and the scissor to the whole target.",
           "kind": "mutating",
           "params": [{ "name": "target", "type": "Texture" }, { "name": "keep", "type": "bool" }, { "name": "red", "type": "f64" }, { "name": "green", "type": "f64" }, { "name": "blue", "type": "f64" }, { "name": "alpha", "type": "f64" }],
           "returns": "void",
@@ -592,7 +592,7 @@
         },
         {
           "name": "set_vertex_buffer",
-          "docs": "Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or\ninstance.",
+          "docs": "Binds `buffer`, from `offset` bytes in, to input slot `slot`, with `stride` bytes for each\nvertex or instance.",
           "kind": "mutating",
           "params": [{ "name": "slot", "type": "i32" }, { "name": "buffer", "type": "Buffer" }, { "name": "stride", "type": "i32" }, { "name": "offset", "type": "i64" }],
           "returns": "void",
