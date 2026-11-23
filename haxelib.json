@@ -6,6 +6,6 @@
   "license": "Apache",
   "tags": ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native", "hxcpp", "hashlink", "cross"],
   "contributors": ["darmie", "rayzor"],
-  "releasenote": "Blend what a render pipeline draws into its target.",
+  "releasenote": "Blend what a pipeline draws, read vertex buffers per instance and from an offset, write part of a texture, set viewports and scissors, and keep a render target.",
   "dependencies": { "hxn": "0.3.9" }
 }
