@@ -301,6 +301,21 @@ pub struct Blend {
     pub alpha_destination: i32,
 }
 
+/// Each color target of a graphics pipeline has a format, and blends as the fields after
+/// `format` set, with the same codes as `Blend`.
+#[hxn::data]
+#[derive(Clone)]
+pub struct ColorTarget {
+    pub format: Format,
+    pub enabled: bool,
+    pub color_operation: i32,
+    pub color_source: i32,
+    pub color_destination: i32,
+    pub alpha_operation: i32,
+    pub alpha_source: i32,
+    pub alpha_destination: i32,
+}
+
 // Maps each shared factor code to its D3D12 factor, in the order of hxn-gpu's `BlendFactor`.
 // Direct3D takes no color factor for the alpha, so for the alpha each color factor becomes
 // the matching alpha factor, as WebGPU defines it.
@@ -546,12 +561,27 @@ impl Device {
             ..Default::default()
         };
         let resource = self.commit(Heap::Default, &desc, D3D12_RESOURCE_STATE_COMMON, None)?;
-        texture(
+        let mut made = texture(
             &self.shared.device.0,
             resource,
             descriptor.format,
             flags.contains(D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET),
-        )
+        )?;
+        if flags.contains(D3D12_RESOURCE_FLAG_ALLOW_DEPTH_STENCIL) {
+            let d = &self.shared.device.0;
+            let heap: ID3D12DescriptorHeap = unsafe {
+                d.CreateDescriptorHeap(&D3D12_DESCRIPTOR_HEAP_DESC {
+                    Type: D3D12_DESCRIPTOR_HEAP_TYPE_DSV,
+                    NumDescriptors: 1,
+                    ..Default::default()
+                })
+            }
+            .map_err(|e| failed("creating the depth stencil heap", e))?;
+            let handle = unsafe { heap.GetCPUDescriptorHandleForHeapStart() };
+            unsafe { d.CreateDepthStencilView(&made.resource.0, None, handle) };
+            made.depth = Some(Shared(heap));
+        }
+        Ok(made)
     }
 
     /// HLSL `source` compiled to shader model 5.1 bytecode for `entry` and `profile` (`cs_5_1`,
@@ -699,6 +729,58 @@ impl Device {
         attributes: Vec<VertexAttribute>,
         blend: Blend,
     ) -> Result<PipelineState, String> {
+        let target = ColorTarget {
+            format,
+            enabled: blend.enabled,
+            color_operation: blend.color_operation,
+            color_source: blend.color_source,
+            color_destination: blend.color_destination,
+            alpha_operation: blend.alpha_operation,
+            alpha_source: blend.alpha_source,
+            alpha_destination: blend.alpha_destination,
+        };
+        self.create_graphics_pipeline_with(
+            vertex,
+            pixel,
+            signature,
+            vec![target],
+            false,
+            Format::D32Float,
+            1,
+            true,
+            topology,
+            attributes,
+        )
+    }
+
+    /// Creates a graphics pipeline state that renders into the targets of `targets`, in the
+    /// order of the pixel shader's outputs, with no culling. With `has_depth`, it tests depth in
+    /// a target of `depth`: the test passes when `compare` holds between a pixel's depth and the
+    /// target's, with the codes from 0 `Never` to 7 `Always` that hxn-gpu's drivers share, and
+    /// with `write` a pixel that passes writes its depth.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_graphics_pipeline_with(
+        &self,
+        vertex: &[u8],
+        pixel: &[u8],
+        signature: &RootSignature,
+        targets: Vec<ColorTarget>,
+        has_depth: bool,
+        depth: Format,
+        compare: i32,
+        write: bool,
+        topology: Topology,
+        attributes: Vec<VertexAttribute>,
+    ) -> Result<PipelineState, String> {
+        if targets.is_empty() || targets.len() > 8 {
+            return Err(format!(
+                "a pipeline has 1 to 8 targets, not {}",
+                targets.len()
+            ));
+        }
+        if !(0..=7).contains(&compare) {
+            return Err(format!("a compare function is 0 to 7, not {compare}"));
+        }
         // naga names every vertex input's semantic LOC, indexed by its location.
         static SEMANTIC: &[u8] = b"LOC\0";
         let elements = attributes
@@ -719,22 +801,38 @@ impl Device {
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
-        let mut state = D3D12_BLEND_DESC::default();
-        let target = &mut state.RenderTarget[0];
-        target.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8;
-        if blend.enabled {
-            target.BlendEnable = true.into();
-            target.BlendOp = blend_operation(blend.color_operation, "the color operation")?;
-            target.SrcBlend = blend_factor(blend.color_source, false, "the color source")?;
-            target.DestBlend =
-                blend_factor(blend.color_destination, false, "the color destination")?;
-            target.BlendOpAlpha = blend_operation(blend.alpha_operation, "the alpha operation")?;
-            target.SrcBlendAlpha = blend_factor(blend.alpha_source, true, "the alpha source")?;
-            target.DestBlendAlpha =
-                blend_factor(blend.alpha_destination, true, "the alpha destination")?;
-        }
+        let mut state = D3D12_BLEND_DESC {
+            IndependentBlendEnable: (targets.len() > 1).into(),
+            ..Default::default()
+        };
         let mut formats = [DXGI_FORMAT_UNKNOWN; 8];
-        formats[0] = format.raw();
+        for (index, t) in targets.iter().enumerate() {
+            formats[index] = t.format.raw();
+            let target = &mut state.RenderTarget[index];
+            target.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8;
+            if t.enabled {
+                target.BlendEnable = true.into();
+                target.BlendOp = blend_operation(t.color_operation, "the color operation")?;
+                target.SrcBlend = blend_factor(t.color_source, false, "the color source")?;
+                target.DestBlend =
+                    blend_factor(t.color_destination, false, "the color destination")?;
+                target.BlendOpAlpha = blend_operation(t.alpha_operation, "the alpha operation")?;
+                target.SrcBlendAlpha = blend_factor(t.alpha_source, true, "the alpha source")?;
+                target.DestBlendAlpha =
+                    blend_factor(t.alpha_destination, true, "the alpha destination")?;
+            }
+        }
+        // Direct3D numbers comparisons from 1 `Never`.
+        let depth_state = D3D12_DEPTH_STENCIL_DESC {
+            DepthEnable: has_depth.into(),
+            DepthWriteMask: if has_depth && write {
+                D3D12_DEPTH_WRITE_MASK_ALL
+            } else {
+                D3D12_DEPTH_WRITE_MASK_ZERO
+            },
+            DepthFunc: D3D12_COMPARISON_FUNC(compare + 1),
+            ..Default::default()
+        };
         let desc = D3D12_GRAPHICS_PIPELINE_STATE_DESC {
             pRootSignature: unsafe { std::mem::transmute_copy(&signature.signature.0) },
             VS: D3D12_SHADER_BYTECODE {
@@ -758,8 +856,14 @@ impl Device {
                 NumElements: elements.len() as u32,
             },
             PrimitiveTopologyType: topology.kind(),
-            NumRenderTargets: 1,
+            NumRenderTargets: targets.len() as u32,
             RTVFormats: formats,
+            DepthStencilState: depth_state,
+            DSVFormat: if has_depth {
+                depth.raw()
+            } else {
+                DXGI_FORMAT_UNKNOWN
+            },
             SampleDesc: DXGI_SAMPLE_DESC {
                 Count: 1,
                 Quality: 0,
@@ -883,6 +987,7 @@ fn texture(
     Ok(Texture {
         resource: Shared(resource),
         target: rtv,
+        depth: None,
         width: desc.Width as u32,
         height: desc.Height,
         format,
@@ -1016,10 +1121,72 @@ impl Buffer {
 }
 
 /// A 2D texture in the default heap.
+/// `RenderTargets` collects the attachments of a pass: render targets in order, and an optional
+/// depth target. `CommandList.set_render_targets` renders into them.
+#[hxn::interface]
+pub struct RenderTargets {
+    colors: Vec<(D3D12_CPU_DESCRIPTOR_HANDLE, Option<[f32; 4]>)>,
+    depth: Option<(D3D12_CPU_DESCRIPTOR_HANDLE, Option<f32>)>,
+    width: u32,
+    height: u32,
+}
+
+#[hxn::methods]
+impl RenderTargets {
+    pub fn create() -> RenderTargets {
+        RenderTargets {
+            colors: Vec::new(),
+            depth: None,
+            width: 0,
+            height: 0,
+        }
+    }
+
+    /// Adds the next render target, `target`, cleared first to `red`, `green`, `blue`, `alpha`,
+    /// or with `keep` drawn over as it is.
+    #[allow(clippy::too_many_arguments)]
+    pub fn color(
+        &mut self,
+        target: &Texture,
+        keep: bool,
+        red: f64,
+        green: f64,
+        blue: f64,
+        alpha: f64,
+    ) -> Result<(), String> {
+        let heap = target
+            .target
+            .as_ref()
+            .ok_or("the texture is not a render target")?;
+        if self.colors.is_empty() {
+            self.width = target.width;
+            self.height = target.height;
+        }
+        let handle = unsafe { heap.0.GetCPUDescriptorHandleForHeapStart() };
+        let clear = (!keep).then_some([red as f32, green as f32, blue as f32, alpha as f32]);
+        self.colors.push((handle, clear));
+        Ok(())
+    }
+
+    /// Sets the depth target, `target`, cleared first to `clear`, or with `keep` tested against
+    /// as it is.
+    pub fn depth(&mut self, target: &Texture, keep: bool, clear: f64) -> Result<(), String> {
+        let heap = target
+            .depth
+            .as_ref()
+            .ok_or("the texture is not a depth target")?;
+        let handle = unsafe { heap.0.GetCPUDescriptorHandleForHeapStart() };
+        self.depth = Some((handle, (!keep).then_some(clear as f32)));
+        Ok(())
+    }
+}
+
 #[hxn::interface]
 pub struct Texture {
     resource: Shared<ID3D12Resource>,
     target: Option<Shared<ID3D12DescriptorHeap>>,
+    // The depth stencil view of a depth texture.
+    depth: Option<Shared<ID3D12DescriptorHeap>>,
     width: u32,
     height: u32,
     format: Format,
@@ -1559,6 +1726,50 @@ impl CommandList {
             },
         };
         unsafe { list.ResourceBarrier(&[barrier]) };
+        Ok(())
+    }
+
+    /// Renders into the attachments of `targets`, each in its render target or depth write
+    /// state, clearing the ones it asks to clear, and sets the viewport and the scissor to the
+    /// whole of them.
+    pub fn set_render_targets(&mut self, targets: &mut RenderTargets) -> Result<(), String> {
+        let list = self.recording()?;
+        if targets.colors.is_empty() {
+            return Err("a pass renders into at least one target".into());
+        }
+        let handles: Vec<D3D12_CPU_DESCRIPTOR_HANDLE> =
+            targets.colors.iter().map(|(h, _)| *h).collect();
+        let depth = targets.depth.map(|(h, _)| h);
+        unsafe {
+            list.OMSetRenderTargets(
+                handles.len() as u32,
+                Some(handles.as_ptr()),
+                false,
+                depth.as_ref().map(|h| h as *const _),
+            );
+            for (handle, clear) in &targets.colors {
+                if let Some(color) = clear {
+                    list.ClearRenderTargetView(*handle, color, None);
+                }
+            }
+            if let Some((handle, Some(value))) = targets.depth {
+                list.ClearDepthStencilView(handle, D3D12_CLEAR_FLAG_DEPTH, value, 0, None);
+            }
+            list.RSSetViewports(&[D3D12_VIEWPORT {
+                TopLeftX: 0.0,
+                TopLeftY: 0.0,
+                Width: targets.width as f32,
+                Height: targets.height as f32,
+                MinDepth: 0.0,
+                MaxDepth: 1.0,
+            }]);
+            list.RSSetScissorRects(&[RECT {
+                left: 0,
+                top: 0,
+                right: targets.width as i32,
+                bottom: targets.height as i32,
+            }]);
+        }
         Ok(())
     }
 

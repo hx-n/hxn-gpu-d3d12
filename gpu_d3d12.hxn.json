@@ -125,6 +125,20 @@
         { "name": "alpha_source", "type": "i32" },
         { "name": "alpha_destination", "type": "i32" }
       ]
+    },
+    {
+      "name": "ColorTarget",
+      "docs": "Each color target of a graphics pipeline has a format, and blends as the fields after\n`format` set, with the same codes as `Blend`.",
+      "fields": [
+        { "name": "format", "type": "Format" },
+        { "name": "enabled", "type": "bool" },
+        { "name": "color_operation", "type": "i32" },
+        { "name": "color_source", "type": "i32" },
+        { "name": "color_destination", "type": "i32" },
+        { "name": "alpha_operation", "type": "i32" },
+        { "name": "alpha_source", "type": "i32" },
+        { "name": "alpha_destination", "type": "i32" }
+      ]
     }
   ],
   "interfaces": [
@@ -246,6 +260,15 @@
           "blocking": false
         },
         {
+          "name": "create_graphics_pipeline_with",
+          "docs": "Creates a graphics pipeline state that renders into the targets of `targets`, in the\norder of the pixel shader's outputs, with no culling. With `has_depth`, it tests depth in\na target of `depth`: the test passes when `compare` holds between a pixel's depth and the\ntarget's, with the codes from 0 `Never` to 7 `Always` that hxn-gpu's drivers share, and\nwith `write` a pixel that passes writes its depth.",
+          "kind": "method",
+          "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "targets", "type": "list<ColorTarget>" }, { "name": "has_depth", "type": "bool" }, { "name": "depth", "type": "Format" }, { "name": "compare", "type": "i32" }, { "name": "write", "type": "bool" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }],
+          "returns": "PipelineState",
+          "fallible": true,
+          "blocking": false
+        },
+        {
           "name": "create_descriptor_heap",
           "docs": "A shader-visible descriptor heap of `count` descriptors: texture views, or samplers.",
           "kind": "method",
@@ -325,8 +348,39 @@
       ]
     },
     {
+      "name": "RenderTargets",
+      "docs": "A 2D texture in the default heap.\n`RenderTargets` collects the attachments of a pass: render targets in order, and an optional\ndepth target. `CommandList.set_render_targets` renders into them.",
+      "methods": [
+        {
+          "name": "create",
+          "kind": "static",
+          "params": [],
+          "returns": "RenderTargets",
+          "fallible": false,
+          "blocking": false
+        },
+        {
+          "name": "color",
+          "docs": "Adds the next render target, `target`, cleared first to `red`, `green`, `blue`, `alpha`,\nor with `keep` drawn over as it is.",
+          "kind": "mutating",
+          "params": [{ "name": "target", "type": "Texture" }, { "name": "keep", "type": "bool" }, { "name": "red", "type": "f64" }, { "name": "green", "type": "f64" }, { "name": "blue", "type": "f64" }, { "name": "alpha", "type": "f64" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "depth",
+          "docs": "Sets the depth target, `target`, cleared first to `clear`, or with `keep` tested against\nas it is.",
+          "kind": "mutating",
+          "params": [{ "name": "target", "type": "Texture" }, { "name": "keep", "type": "bool" }, { "name": "clear", "type": "f64" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        }
+      ]
+    },
+    {
       "name": "Texture",
-      "docs": "A 2D texture in the default heap.",
       "methods": [
         {
           "name": "width",
@@ -569,6 +623,15 @@
           "docs": "Waits for unordered-access writes to `buffer` before later unordered access to it.",
           "kind": "mutating",
           "params": [{ "name": "buffer", "type": "Buffer" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_render_targets",
+          "docs": "Renders into the attachments of `targets`, each in its render target or depth write\nstate, clearing the ones it asks to clear, and sets the viewport and the scissor to the\nwhole of them.",
+          "kind": "mutating",
+          "params": [{ "name": "targets", "type": "RenderTargets", "borrow": "exclusive" }],
           "returns": "void",
           "fallible": true,
           "blocking": false

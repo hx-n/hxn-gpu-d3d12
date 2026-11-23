@@ -24,6 +24,7 @@ hxn_status hxn_gpu_d3d12_device_compile(hxn_handle *self, hxn_slice source, hxn_
 hxn_status hxn_gpu_d3d12_device_create_root_signature(hxn_handle *self, hxn_slice parameters, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_compute_pipeline(hxn_handle *self, hxn_slice bytecode, hxn_handle *signature, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_graphics_pipeline(hxn_handle *self, hxn_slice vertex, hxn_slice pixel, hxn_handle *signature, int32_t format, int32_t topology, hxn_slice attributes, hxn_slice blend, hxn_handle **out, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_device_create_graphics_pipeline_with(hxn_handle *self, hxn_slice vertex, hxn_slice pixel, hxn_handle *signature, hxn_slice targets, int32_t has_depth, int32_t depth, int32_t compare, int32_t write, int32_t topology, hxn_slice attributes, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_descriptor_heap(hxn_handle *self, int32_t kind, int32_t count, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_supports_enhanced_barriers(hxn_handle *self, int32_t *out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_command_list(hxn_handle *self, hxn_handle **out, hxn_buf *err);
@@ -36,6 +37,12 @@ hxn_status hxn_gpu_d3d12_buffer_size(hxn_handle *self, int64_t *out, hxn_buf *er
 hxn_status hxn_gpu_d3d12_buffer_write(hxn_handle *self, int64_t offset, hxn_slice bytes, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_buffer_read(hxn_handle *self, int64_t offset, int64_t length, hxn_buf *out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_buffer_drop(hxn_handle *self, hxn_buf *err);
+
+/* RenderTargets */
+hxn_status hxn_gpu_d3d12_render_targets_create(hxn_handle **out, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_render_targets_color(hxn_handle *self, hxn_handle *target, int32_t keep, double red, double green, double blue, double alpha, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_render_targets_depth(hxn_handle *self, hxn_handle *target, int32_t keep, double clear, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_render_targets_drop(hxn_handle *self, hxn_buf *err);
 
 /* Texture */
 hxn_status hxn_gpu_d3d12_texture_width(hxn_handle *self, int32_t *out, hxn_buf *err);
@@ -78,6 +85,7 @@ hxn_status hxn_gpu_d3d12_command_list_dispatch(hxn_handle *self, int32_t x, int3
 hxn_status hxn_gpu_d3d12_command_list_transition_buffer(hxn_handle *self, hxn_handle *buffer, int32_t before, int32_t after, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_transition_texture(hxn_handle *self, hxn_handle *texture, int32_t before, int32_t after, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_uav_barrier(hxn_handle *self, hxn_handle *buffer, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_set_render_targets(hxn_handle *self, hxn_handle *targets, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_set_render_target(hxn_handle *self, hxn_handle *target, int32_t keep, double red, double green, double blue, double alpha, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_set_topology(hxn_handle *self, int32_t topology, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_set_vertex_buffer(hxn_handle *self, int32_t slot, hxn_handle *buffer, int32_t stride, int64_t offset, hxn_buf *err);

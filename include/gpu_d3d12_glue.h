@@ -119,6 +119,13 @@ inline void *device_create_graphics_pipeline(void *self, Array<unsigned char> ve
 	return out;
 }
 
+inline void *device_create_graphics_pipeline_with(void *self, Array<unsigned char> vertex, Array<unsigned char> pixel, void *signature, Array<unsigned char> targets, bool has_depth, int depth, int compare, bool write, int topology, Array<unsigned char> attributes) {
+	hxn_handle *out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_device_create_graphics_pipeline_with((hxn_handle *)self, hxn::slice(vertex), hxn::slice(pixel), (hxn_handle *)signature, hxn::slice(targets), has_depth ? 1 : 0, depth, compare, write ? 1 : 0, topology, hxn::slice(attributes), &out, &err), err);
+	return out;
+}
+
 inline void *device_create_descriptor_heap(void *self, int kind, int count) {
 	hxn_handle *out = 0;
 	hxn_buf err = HXN_BUF_EMPTY;
@@ -184,6 +191,28 @@ inline Array<unsigned char> buffer_read(void *self, cpp::Int64 offset, cpp::Int6
 inline void buffer_drop(void *self) {
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_buffer_drop((hxn_handle *)self, &err), err);
+}
+
+inline void *render_targets_create() {
+	hxn_handle *out = 0;
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_render_targets_create(&out, &err), err);
+	return out;
+}
+
+inline void render_targets_color(void *self, void *target, bool keep, double red, double green, double blue, double alpha) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_render_targets_color((hxn_handle *)self, (hxn_handle *)target, keep ? 1 : 0, red, green, blue, alpha, &err), err);
+}
+
+inline void render_targets_depth(void *self, void *target, bool keep, double clear) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_render_targets_depth((hxn_handle *)self, (hxn_handle *)target, keep ? 1 : 0, clear, &err), err);
+}
+
+inline void render_targets_drop(void *self) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_render_targets_drop((hxn_handle *)self, &err), err);
 }
 
 inline int texture_width(void *self) {
@@ -344,6 +373,11 @@ inline void command_list_transition_texture(void *self, void *texture, int befor
 inline void command_list_uav_barrier(void *self, void *buffer) {
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_command_list_uav_barrier((hxn_handle *)self, (hxn_handle *)buffer, &err), err);
+}
+
+inline void command_list_set_render_targets(void *self, void *targets) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_render_targets((hxn_handle *)self, (hxn_handle *)targets, &err), err);
 }
 
 inline void command_list_set_render_target(void *self, void *target, bool keep, double red, double green, double blue, double alpha) {

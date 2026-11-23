@@ -98,6 +98,14 @@ class CommandList {
 		HxnGpuD3d12Native.command_list_uav_barrier(hxnRaw, buffer == null ? null : buffer.hxnRaw);
 
 	/**
+		Renders into the attachments of `targets`, each in its render target or depth write
+		state, clearing the ones it asks to clear, and sets the viewport and the scissor to the
+		whole of them.
+	**/
+	public function setRenderTargets(targets:RenderTargets):Void
+		HxnGpuD3d12Native.command_list_set_render_targets(hxnRaw, targets == null ? null : targets.hxnRaw);
+
+	/**
 		Renders into `target`, which must be in the render target state. The pass clears
 		`target` to `red`, `green`, `blue`, `alpha`, or with `keep` draws over what it holds. It
 		also sets the viewport and the scissor to the whole target.

@@ -61,7 +61,12 @@ Render: `createTexture({width, height, format: Format.Rgba8Unorm, usage: Texture
 `transitionTexture(t, State.RenderTarget, State.CopySource)` and
 `copyTextureToBuffer(t, readback)`, whose rows are `t.copyPitch()` bytes apart. `setViewport(x, y, width, height)` and `setScissor(x, y, width, height)` take
 pixels from the target's top-left corner. Each `VertexAttribute` with `perInstance` reads its
-slot once per instance.
+slot once per instance. Several targets and depth: `device.createGraphicsPipelineWith(vertex, pixel, signature,
+targets, hasDepth, depthFormat, compare, write, topology, attributes)` takes `ColorTarget`
+records and compare codes 0 `Never` to 7 `Always`; a `Format.D32Float` texture with
+`TextureUsage.DepthStencil` has a depth view; `RenderTargets.create()` with
+`color(texture, keep, r, g, b, a)` and `depth(texture, keep, clear)` feeds
+`commands.setRenderTargets(targets)`, with depth textures in `State.DepthWrite`.
 
 Textures and samplers:
 

@@ -88,6 +88,37 @@ class Device {
 		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_graphics_pipeline(hxnRaw, vertex, pixel, signature == null ? null : signature.hxnRaw, format, topology, attributesBytes, blendBytes));
 	}
 
+	/**
+		Creates a graphics pipeline state that renders into the targets of `targets`, in the
+		order of the pixel shader's outputs, with no culling. With `has_depth`, it tests depth in
+		a target of `depth`: the test passes when `compare` holds between a pixel's depth and the
+		target's, with the codes from 0 `Never` to 7 `Always` that hxn-gpu's drivers share, and
+		with `write` a pixel that passes writes its depth.
+	**/
+	public function createGraphicsPipelineWith(vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:RootSignature, targets:Array<ColorTarget>, hasDepth:Bool, depth:Format, compare:Int, write:Bool, topology:Topology, attributes:Array<VertexAttribute>):PipelineState {
+		var targetsOut = new haxe.io.BytesBuffer();
+		if (targets == null)
+			throw new haxe.Exception("null where a list is needed");
+		targetsOut.addInt32(targets.length);
+		for (item0 in targets) {
+			if (item0 == null)
+				throw new haxe.Exception("null where a ColorTarget is needed");
+			item0.hxnWrite(targetsOut);
+		}
+		var targetsBytes = targetsOut.getBytes();
+		var attributesOut = new haxe.io.BytesBuffer();
+		if (attributes == null)
+			throw new haxe.Exception("null where a list is needed");
+		attributesOut.addInt32(attributes.length);
+		for (item0 in attributes) {
+			if (item0 == null)
+				throw new haxe.Exception("null where a VertexAttribute is needed");
+			item0.hxnWrite(attributesOut);
+		}
+		var attributesBytes = attributesOut.getBytes();
+		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_graphics_pipeline_with(hxnRaw, vertex, pixel, signature == null ? null : signature.hxnRaw, targetsBytes, hasDepth, depth, compare, write, topology, attributesBytes));
+	}
+
 	/** A shader-visible descriptor heap of `count` descriptors: texture views, or samplers. **/
 	public function createDescriptorHeap(kind:HeapKind, count:Int):DescriptorHeap
 		return DescriptorHeap.hxnAdopt(HxnGpuD3d12Native.device_create_descriptor_heap(hxnRaw, kind, count));

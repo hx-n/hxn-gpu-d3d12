@@ -1,11 +1,11 @@
 {
   "name": "hxn-gpu-d3d12",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers",
   "url": "https://github.com/hx-n/hxn-gpu-d3d12",
   "license": "Apache",
   "tags": ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native", "hxcpp", "hashlink", "cross"],
   "contributors": ["darmie", "rayzor"],
-  "releasenote": "Blend what a pipeline draws, read vertex buffers per instance and from an offset, write part of a texture, set viewports and scissors, and keep a render target.",
+  "releasenote": "Draw into several color targets in one pass, and test and write depth.",
   "dependencies": { "hxn": "0.3.9" }
 }
