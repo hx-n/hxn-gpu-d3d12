@@ -103,8 +103,8 @@ class Main {
 		});
 	}
 
-	/** Reads a 4x4 Rgba8 target back, and checks every pixel is `expected`. **/
-	static function readTarget(device:Device, commands:CommandList, target:Texture, expected:Array<Int>, label:String) {
+	/** Reads a 4x4 Rgba8 target back, and checks every pixel is `expected`, within `tolerance`. **/
+	static function readTarget(device:Device, commands:CommandList, target:Texture, expected:Array<Int>, label:String, tolerance = 0) {
 		var size = target.width();
 		var pitch = target.copyPitch();
 		var readback = device.createBuffer(pitch * size, Heap.Readback, 0, false);
@@ -116,19 +116,52 @@ class Main {
 			for (x in 0...size)
 				for (c in 0...4) {
 					var at = y * pitch + x * 4 + c;
-					check(pixels.get(at) == expected[c], '$label: pixel $x,$y channel $c is ${pixels.get(at)}, not ${expected[c]}');
+					check(Math.abs(pixels.get(at) - expected[c]) <= tolerance, '$label: pixel $x,$y channel $c is ${pixels.get(at)}, not ${expected[c]}');
 				}
 		Sys.println('$label: ${size}x$size pixels of ${[for (c in 0...4) pixels.get(c)].join(", ")}');
 		readback.close();
 	}
 
+	// Blending is off: the quad's color replaces the target's.
+	static final REPLACE:Blend = {
+		enabled: false,
+		colorOperation: 0,
+		colorSource: 1,
+		colorDestination: 0,
+		alphaOperation: 0,
+		alphaSource: 1,
+		alphaDestination: 0
+	};
+
+	// Straight alpha: color = source * source alpha + destination * (1 - source alpha),
+	// and alpha = source + destination * (1 - source alpha). The shared factor codes 4
+	// (SrcAlpha), 5 (OneMinusSrcAlpha) and 1 (One), and the operation 0 (Add).
+	static final ALPHA:Blend = {
+		enabled: true,
+		colorOperation: 0,
+		colorSource: 4,
+		colorDestination: 5,
+		alphaOperation: 0,
+		alphaSource: 1,
+		alphaDestination: 5
+	};
+
 	static function render(device:Device) {
+		var tint = [0.25, 0.5, 0.75, 1.0];
+		quad(device, tint, [0.0, 0.0, 0.0, 0.0], REPLACE, [for (c in tint) Math.round(c * 255)], "render", 0);
+		// A half-transparent red quad over a blue target: half red, half blue, opaque.
+		quad(device, [1.0, 0.0, 0.0, 0.5], [0.0, 0.0, 1.0, 1.0], ALPHA, [128, 0, 128, 255], "blend", 1);
+	}
+
+	// Draws a quad of `tint` into a 4x4 target cleared to `clear`, with `blend`, and checks
+	// every pixel is `expected` within `tolerance`.
+	static function quad(device:Device, tint:Array<Float>, clear:Array<Float>, blend:Blend, expected:Array<Int>, label:String, tolerance:Int) {
 		var vertex = D3D12Shaders.bytecode(device, Tinted.dxil("vertex_main"), Tinted.HLSL, "vertex_main", "vertex");
 		var pixel = D3D12Shaders.bytecode(device, Tinted.dxil("fragment_main"), Tinted.HLSL, "fragment_main", "fragment");
 		var layout = new RootLayout(Tinted.HLSL_SLOTS, Tinted.LAYOUT);
 		var signature = device.createRootSignature(layout.parameters);
 		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip,
-			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0}]);
+			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0}], blend);
 		var target = device.createTexture({width: 4, height: 4, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget});
 
 		var quad = Bytes.alloc(4 * 8);
@@ -137,21 +170,20 @@ class Main {
 			quad.setFloat(i * 4, corners[i]);
 		var positions = device.createBufferWith(quad);
 		var params = Bytes.alloc(Tinted.PARAMS_SIZE);
-		var tint = [0.25, 0.5, 0.75, 1.0];
 		for (i in 0...4)
 			params.setFloat(Tinted.PARAMS_tint + i * 4, tint[i]);
 		var uniforms = device.createBufferWith(params);
 
 		var commands = device.createCommandList();
 		commands.transitionTexture(target, State.Common, State.RenderTarget);
-		commands.setRenderTarget(target, 0, 0, 0, 0);
+		commands.setRenderTarget(target, clear[0], clear[1], clear[2], clear[3]);
 		commands.setGraphicsRootSignature(signature);
 		commands.setPipelineState(pipeline);
 		commands.setGraphicsRootBuffer(layout.buffer(Tinted.PARAMS_GROUP, Tinted.PARAMS_BINDING), ParameterKind.ConstantBuffer, uniforms);
 		commands.setTopology(Topology.TriangleStrip);
 		commands.setVertexBuffer(0, positions, 8);
 		commands.draw(4, 1, 0);
-		readTarget(device, commands, target, [for (c in tint) Math.round(c * 255)], "render");
+		readTarget(device, commands, target, expected, label, tolerance);
 		closeAll([commands, uniforms, positions, target, pipeline, signature]);
 	}
 
@@ -163,7 +195,7 @@ class Main {
 		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip, [
 			{location: Textured.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0},
 			{location: Textured.INPUT_uv, slot: 0, format: Format.Rg32Float, offset: 8}
-		]);
+		], REPLACE);
 
 		// A 2x2 image of one color, uploaded through a buffer with Direct3D 12's row pitch.
 		var color = [40, 80, 120, 255];

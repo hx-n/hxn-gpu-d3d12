@@ -89,6 +89,19 @@ with an hxn-window window. Each frame: `var t = chain.buffer(chain.currentIndex(
 `transitionTexture(t, State.RenderTarget, State.Common)`, execute, then
 `chain.present(1)` (vertical blanks to wait; 0 presents at once).
 
+## Blending
+
+`device.createGraphicsPipeline` takes a `Blend` record last: `enabled`, then
+the operation and the source and destination factors of the color and of the
+alpha. The factors are hxn-gpu's shared codes: 0 `Zero`, 1 `One`, 2 `Src`,
+3 `OneMinusSrc`, 4 `SrcAlpha`, 5 `OneMinusSrcAlpha`, 6 `Dst`, 7 `OneMinusDst`,
+8 `DstAlpha`, 9 `OneMinusDstAlpha` and 10 `SrcAlphaSaturated`. The operations
+are 0 `Add`, 1 `Subtract`, 2 `ReverseSubtract`, 3 `Min` and 4 `Max`. Straight
+alpha is `{enabled: true, colorOperation: 0, colorSource: 4, colorDestination: 5,
+alphaOperation: 0, alphaSource: 1, alphaDestination: 5}`, and `enabled: false`
+writes the color as it is. For the alpha, a color factor such as `Src` means the
+matching alpha factor, because Direct3D 12 takes no color factor there.
+
 ## Rules
 
 - Synchronization is explicit: transition a resource into the state each

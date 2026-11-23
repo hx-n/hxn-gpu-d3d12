@@ -286,6 +286,51 @@ impl Topology {
 }
 
 /// The DXGI factory: the adapters, WARP included.
+/// How a pipeline blends what it draws into its target. The factors are hxn-gpu's shared
+/// codes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations from 0 `Add` to 4 `Max`.
+/// With `enabled` false, the pipeline writes its color as it is.
+#[hxn::data]
+pub struct Blend {
+    pub enabled: bool,
+    pub color_operation: i32,
+    pub color_source: i32,
+    pub color_destination: i32,
+    pub alpha_operation: i32,
+    pub alpha_source: i32,
+    pub alpha_destination: i32,
+}
+
+// The D3D12 factor of each shared code, in the order of hxn-gpu's `BlendFactor`. Direct3D
+// takes no color factor in the alpha half, so for alpha each color factor becomes the
+// matching alpha factor, as WebGPU defines it.
+fn blend_factor(code: i32, alpha: bool, what: &str) -> Result<D3D12_BLEND, String> {
+    Ok(match (code, alpha) {
+        (0, _) => D3D12_BLEND_ZERO,
+        (1, _) => D3D12_BLEND_ONE,
+        (2, false) => D3D12_BLEND_SRC_COLOR,
+        (3, false) => D3D12_BLEND_INV_SRC_COLOR,
+        (2, true) | (4, _) => D3D12_BLEND_SRC_ALPHA,
+        (3, true) | (5, _) => D3D12_BLEND_INV_SRC_ALPHA,
+        (6, false) => D3D12_BLEND_DEST_COLOR,
+        (7, false) => D3D12_BLEND_INV_DEST_COLOR,
+        (6, true) | (8, _) => D3D12_BLEND_DEST_ALPHA,
+        (7, true) | (9, _) => D3D12_BLEND_INV_DEST_ALPHA,
+        (10, _) => D3D12_BLEND_SRC_ALPHA_SAT,
+        _ => return Err(format!("{what} is {code}, and a blend factor is 0 to 10")),
+    })
+}
+
+fn blend_operation(code: i32, what: &str) -> Result<D3D12_BLEND_OP, String> {
+    Ok(match code {
+        0 => D3D12_BLEND_OP_ADD,
+        1 => D3D12_BLEND_OP_SUBTRACT,
+        2 => D3D12_BLEND_OP_REV_SUBTRACT,
+        3 => D3D12_BLEND_OP_MIN,
+        4 => D3D12_BLEND_OP_MAX,
+        _ => return Err(format!("{what} is {code}, and a blend operation is 0 to 4")),
+    })
+}
+
 #[hxn::interface]
 pub struct Factory {
     factory: Shared<IDXGIFactory4>,
@@ -639,8 +684,8 @@ impl Device {
         })
     }
 
-    /// A graphics pipeline state rendering into one target of `format`, with no blending, no
-    /// culling and no depth.
+    /// A graphics pipeline state rendering into one target of `format`, blending as `blend`
+    /// describes, with no culling and no depth.
     #[allow(clippy::too_many_arguments)]
     pub fn create_graphics_pipeline(
         &self,
@@ -650,6 +695,7 @@ impl Device {
         format: Format,
         topology: Topology,
         attributes: Vec<VertexAttribute>,
+        blend: Blend,
     ) -> Result<PipelineState, String> {
         // naga names every vertex input's semantic LOC, indexed by its location.
         static SEMANTIC: &[u8] = b"LOC\0";
@@ -667,8 +713,20 @@ impl Device {
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
-        let mut blend = D3D12_BLEND_DESC::default();
-        blend.RenderTarget[0].RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8;
+        let mut state = D3D12_BLEND_DESC::default();
+        let target = &mut state.RenderTarget[0];
+        target.RenderTargetWriteMask = D3D12_COLOR_WRITE_ENABLE_ALL.0 as u8;
+        if blend.enabled {
+            target.BlendEnable = true.into();
+            target.BlendOp = blend_operation(blend.color_operation, "the color operation")?;
+            target.SrcBlend = blend_factor(blend.color_source, false, "the color source")?;
+            target.DestBlend =
+                blend_factor(blend.color_destination, false, "the color destination")?;
+            target.BlendOpAlpha = blend_operation(blend.alpha_operation, "the alpha operation")?;
+            target.SrcBlendAlpha = blend_factor(blend.alpha_source, true, "the alpha source")?;
+            target.DestBlendAlpha =
+                blend_factor(blend.alpha_destination, true, "the alpha destination")?;
+        }
         let mut formats = [DXGI_FORMAT_UNKNOWN; 8];
         formats[0] = format.raw();
         let desc = D3D12_GRAPHICS_PIPELINE_STATE_DESC {
@@ -681,7 +739,7 @@ impl Device {
                 pShaderBytecode: pixel.as_ptr() as *const c_void,
                 BytecodeLength: pixel.len(),
             },
-            BlendState: blend,
+            BlendState: state,
             SampleMask: u32::MAX,
             RasterizerState: D3D12_RASTERIZER_DESC {
                 FillMode: D3D12_FILL_MODE_SOLID,

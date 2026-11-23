@@ -1,11 +1,11 @@
 {
   "name": "hxn-gpu-d3d12",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Direct3D 12 for Haxe: devices, resources, root signatures, pipeline states and command lists with explicit resource barriers",
   "url": "https://github.com/hx-n/hxn-gpu-d3d12",
   "license": "Apache",
   "tags": ["d3d12", "direct3d", "gpu", "haxe", "graphics", "compute", "hlsl", "windows", "native", "hxcpp", "hashlink", "cross"],
   "contributors": ["darmie", "rayzor"],
-  "releasenote": "Use hxn 0.3.9 shared logging with application-owned filtering and sinks; retain pinned dependency redistribution notices.",
+  "releasenote": "Blend what a render pipeline draws into its target.",
   "dependencies": { "hxn": "0.3.9" }
 }
