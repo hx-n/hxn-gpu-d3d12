@@ -3,13 +3,14 @@ package hxn.gpu.d3d12;
 
 /**
 	One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL
-	semantic `LOC<location>`.
+	semantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.
 **/
 @:structInit class VertexAttribute {
 	public var location:Int;
 	public var slot:Int;
 	public var format:Format;
 	public var offset:Int;
+	public var perInstance:Bool;
 
 	/** Writes the fields in order, as the library reads them. **/
 	@:noCompletion public function hxnWrite(out:haxe.io.BytesBuffer):Void {
@@ -17,6 +18,7 @@ package hxn.gpu.d3d12;
 		out.addInt32(slot);
 		out.addInt32(format);
 		out.addInt32(offset);
+		out.addByte(perInstance ? 1 : 0);
 	}
 
 	/** Reads what the library wrote. **/
@@ -25,7 +27,8 @@ package hxn.gpu.d3d12;
 		var slot:Int = input.readInt32();
 		var format:Format = (input.readInt32() : Format);
 		var offset:Int = input.readInt32();
-		var made:VertexAttribute = {location: location, slot: slot, format: format, offset: offset};
+		var perInstance:Bool = input.readByte() != 0;
+		var made:VertexAttribute = {location: location, slot: slot, format: format, offset: offset, perInstance: perInstance};
 		return made;
 	}
 }

@@ -161,7 +161,7 @@ class Main {
 		var layout = new RootLayout(Tinted.HLSL_SLOTS, Tinted.LAYOUT);
 		var signature = device.createRootSignature(layout.parameters);
 		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip,
-			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0}], blend);
+			[{location: Tinted.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0, perInstance: false}], blend);
 		var target = device.createTexture({width: 4, height: 4, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget});
 
 		var quad = Bytes.alloc(4 * 8);
@@ -176,12 +176,12 @@ class Main {
 
 		var commands = device.createCommandList();
 		commands.transitionTexture(target, State.Common, State.RenderTarget);
-		commands.setRenderTarget(target, clear[0], clear[1], clear[2], clear[3]);
+		commands.setRenderTarget(target, false, clear[0], clear[1], clear[2], clear[3]);
 		commands.setGraphicsRootSignature(signature);
 		commands.setPipelineState(pipeline);
 		commands.setGraphicsRootBuffer(layout.buffer(Tinted.PARAMS_GROUP, Tinted.PARAMS_BINDING), ParameterKind.ConstantBuffer, uniforms);
 		commands.setTopology(Topology.TriangleStrip);
-		commands.setVertexBuffer(0, positions, 8);
+		commands.setVertexBuffer(0, positions, 8, 0);
 		commands.draw(4, 1, 0);
 		readTarget(device, commands, target, expected, label, tolerance);
 		closeAll([commands, uniforms, positions, target, pipeline, signature]);
@@ -193,8 +193,8 @@ class Main {
 		var layout = new RootLayout(Textured.HLSL_SLOTS, Textured.LAYOUT);
 		var signature = device.createRootSignature(layout.parameters);
 		var pipeline = device.createGraphicsPipeline(vertex, pixel, signature, Format.Rgba8Unorm, Topology.TriangleStrip, [
-			{location: Textured.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0},
-			{location: Textured.INPUT_uv, slot: 0, format: Format.Rg32Float, offset: 8}
+			{location: Textured.INPUT_position, slot: 0, format: Format.Rg32Float, offset: 0, perInstance: false},
+			{location: Textured.INPUT_uv, slot: 0, format: Format.Rg32Float, offset: 8, perInstance: false}
 		], REPLACE);
 
 		// A 2x2 image of one color, uploaded through a buffer with Direct3D 12's row pitch.
@@ -227,7 +227,7 @@ class Main {
 		commands.copyBufferToTexture(image, staging);
 		commands.transitionTexture(image, State.CopyDest, State.PixelShaderResource);
 		commands.transitionTexture(target, State.Common, State.RenderTarget);
-		commands.setRenderTarget(target, 0, 0, 0, 0);
+		commands.setRenderTarget(target, false, 0, 0, 0, 0);
 		commands.setGraphicsRootSignature(signature);
 		commands.setPipelineState(pipeline);
 		commands.setDescriptorHeaps(resources, samplers);
@@ -236,7 +236,7 @@ class Main {
 		commands.setGraphicsRootTable(layout.comparisonSamplerHeap, samplers, 0);
 		commands.setGraphicsRootBuffer(layout.samplerIndices(group), ParameterKind.ShaderResource, indices);
 		commands.setTopology(Topology.TriangleStrip);
-		commands.setVertexBuffer(0, vertices, 16);
+		commands.setVertexBuffer(0, vertices, 16, 0);
 		commands.draw(4, 1, 0);
 		readTarget(device, commands, target, color, "textured");
 		closeAll([commands, target, vertices, indices, samplers, resources, staging, image, pipeline, signature]);

@@ -53,12 +53,15 @@ device.execute(commands).then(_ -> use(readback.read(0, n)));   // or executeAnd
 ```
 
 Render: `createTexture({width, height, format: Format.Rgba8Unorm, usage: TextureUsage.RenderTarget})`,
-`transitionTexture(t, State.Common, State.RenderTarget)`, `setRenderTarget(t, r, g, b, a)`
-(clears, sets viewport and scissor), `setGraphicsRootSignature`, `setPipelineState`,
+`transitionTexture(t, State.Common, State.RenderTarget)`, `setRenderTarget(t, false, r, g, b, a)`
+(clears, or with `true` keeps what the target holds, and sets viewport and scissor),
+`setGraphicsRootSignature`, `setPipelineState`,
 `setGraphicsRootBuffer(index, ParameterKind.ConstantBuffer, uniforms)`, `setTopology`,
-`setVertexBuffer(0, vertices, stride)`, `draw(count, instances, first)`; then
+`setVertexBuffer(0, vertices, stride, offset)`, `draw(count, instances, first)`; then
 `transitionTexture(t, State.RenderTarget, State.CopySource)` and
-`copyTextureToBuffer(t, readback)`, whose rows are `t.copyPitch()` bytes apart.
+`copyTextureToBuffer(t, readback)`, whose rows are `t.copyPitch()` bytes apart. `setViewport(x, y, width, height)` and `setScissor(x, y, width, height)` take
+pixels from the target's top-left corner. Each `VertexAttribute` with `perInstance` reads its
+slot once per instance.
 
 Textures and samplers:
 
@@ -68,6 +71,8 @@ var image = device.createTexture({width: w, height: h, format: Format.Rgba8Unorm
 commands.transitionTexture(image, State.Common, State.CopyDest);
 commands.copyBufferToTexture(image, staging);
 commands.transitionTexture(image, State.CopyDest, State.PixelShaderResource);
+// part of a texture: rows of `width` pixels, each rounded up to 256 bytes
+commands.copyBufferToTextureRegion(image, staging, x, y, width, height);
 
 var resources = device.createDescriptorHeap(HeapKind.Resources, layout.textureCount(group));
 resources.writeTexture(layout.textureOffset(group, Shader.TEXTURE_image), image);

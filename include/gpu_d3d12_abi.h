@@ -73,13 +73,16 @@ hxn_status hxn_gpu_d3d12_command_list_set_graphics_root_table(hxn_handle *self, 
 hxn_status hxn_gpu_d3d12_command_list_buffer_barrier(hxn_handle *self, hxn_handle *buffer, int32_t sync_before, int32_t access_before, int32_t sync_after, int32_t access_after, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_texture_barrier(hxn_handle *self, hxn_handle *texture, int32_t sync_before, int32_t access_before, int32_t from, int32_t sync_after, int32_t access_after, int32_t to, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_copy_buffer_to_texture(hxn_handle *self, hxn_handle *texture, hxn_handle *buffer, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_copy_buffer_to_texture_region(hxn_handle *self, hxn_handle *texture, hxn_handle *buffer, int32_t x, int32_t y, int32_t width, int32_t height, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_dispatch(hxn_handle *self, int32_t x, int32_t y, int32_t z, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_transition_buffer(hxn_handle *self, hxn_handle *buffer, int32_t before, int32_t after, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_transition_texture(hxn_handle *self, hxn_handle *texture, int32_t before, int32_t after, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_uav_barrier(hxn_handle *self, hxn_handle *buffer, hxn_buf *err);
-hxn_status hxn_gpu_d3d12_command_list_set_render_target(hxn_handle *self, hxn_handle *target, double red, double green, double blue, double alpha, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_set_render_target(hxn_handle *self, hxn_handle *target, int32_t keep, double red, double green, double blue, double alpha, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_set_topology(hxn_handle *self, int32_t topology, hxn_buf *err);
-hxn_status hxn_gpu_d3d12_command_list_set_vertex_buffer(hxn_handle *self, int32_t slot, hxn_handle *buffer, int32_t stride, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_set_vertex_buffer(hxn_handle *self, int32_t slot, hxn_handle *buffer, int32_t stride, int64_t offset, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_set_viewport(hxn_handle *self, double x, double y, double width, double height, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_command_list_set_scissor(hxn_handle *self, int32_t x, int32_t y, int32_t width, int32_t height, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_draw(hxn_handle *self, int32_t count, int32_t instances, int32_t first, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_copy_buffer(hxn_handle *self, hxn_handle *destination, hxn_handle *source, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_command_list_copy_texture_to_buffer(hxn_handle *self, hxn_handle *texture, hxn_handle *buffer, hxn_buf *err);

@@ -74,6 +74,14 @@ class CommandList {
 	public function copyBufferToTexture(texture:Texture, buffer:Buffer):Void
 		HxnGpuD3d12Native.command_list_copy_buffer_to_texture(hxnRaw, texture == null ? null : texture.hxnRaw, buffer == null ? null : buffer.hxnRaw);
 
+	/**
+		Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must
+		be in the copy destination state. Rows in `buffer` are `width` pixels rounded up to
+		256 bytes apart.
+	**/
+	public function copyBufferToTextureRegion(texture:Texture, buffer:Buffer, x:Int, y:Int, width:Int, height:Int):Void
+		HxnGpuD3d12Native.command_list_copy_buffer_to_texture_region(hxnRaw, texture == null ? null : texture.hxnRaw, buffer == null ? null : buffer.hxnRaw, x, y, width, height);
+
 	public function dispatch(x:Int, y:Int, z:Int):Void
 		HxnGpuD3d12Native.command_list_dispatch(hxnRaw, x, y, z);
 
@@ -91,17 +99,29 @@ class CommandList {
 
 	/**
 		Renders into `target`, which must be in the render target state, clearing it to
-		`red`, `green`, `blue`, `alpha`, and sets the viewport and scissor to all of it.
+		`red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the
+		viewport and scissor to all of it.
 	**/
-	public function setRenderTarget(target:Texture, red:Float, green:Float, blue:Float, alpha:Float):Void
-		HxnGpuD3d12Native.command_list_set_render_target(hxnRaw, target == null ? null : target.hxnRaw, red, green, blue, alpha);
+	public function setRenderTarget(target:Texture, keep:Bool, red:Float, green:Float, blue:Float, alpha:Float):Void
+		HxnGpuD3d12Native.command_list_set_render_target(hxnRaw, target == null ? null : target.hxnRaw, keep, red, green, blue, alpha);
 
 	public function setTopology(topology:Topology):Void
 		HxnGpuD3d12Native.command_list_set_topology(hxnRaw, topology);
 
-	/** Binds all of `buffer` to input slot `slot`, `stride` bytes per vertex. **/
-	public function setVertexBuffer(slot:Int, buffer:Buffer, stride:Int):Void
-		HxnGpuD3d12Native.command_list_set_vertex_buffer(hxnRaw, slot, buffer == null ? null : buffer.hxnRaw, stride);
+	/**
+		Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or
+		instance.
+	**/
+	public function setVertexBuffer(slot:Int, buffer:Buffer, stride:Int, offset:haxe.Int64):Void
+		HxnGpuD3d12Native.command_list_set_vertex_buffer(hxnRaw, slot, buffer == null ? null : buffer.hxnRaw, stride, offset);
+
+	/** Maps clip space onto the `width` by `height` pixels at `x`, `y` of the target. **/
+	public function setViewport(x:Float, y:Float, width:Float, height:Float):Void
+		HxnGpuD3d12Native.command_list_set_viewport(hxnRaw, x, y, width, height);
+
+	/** Draws only inside the `width` by `height` pixels at `x`, `y` of the target. **/
+	public function setScissor(x:Int, y:Int, width:Int, height:Int):Void
+		HxnGpuD3d12Native.command_list_set_scissor(hxnRaw, x, y, width, height);
 
 	/** Draws `count` vertices from `first`, `instances` times. **/
 	public function draw(count:Int, instances:Int, first:Int):Void

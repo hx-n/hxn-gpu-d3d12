@@ -33,7 +33,7 @@ class Main {
 			var c = colors[frame];
 			var commands = device.createCommandList();
 			commands.transitionTexture(target, State.Common, State.RenderTarget);
-			commands.setRenderTarget(target, c[0], c[1], c[2], 1);
+			commands.setRenderTarget(target, false, c[0], c[1], c[2], 1);
 			var last = frame == colors.length - 1;
 			var readback = device.createBuffer(target.copyPitch() * size, Heap.Readback, 0, false);
 			if (last) {

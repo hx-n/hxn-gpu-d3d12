@@ -321,6 +321,11 @@ inline void command_list_copy_buffer_to_texture(void *self, void *texture, void 
 	hxn::check(hxn_gpu_d3d12_command_list_copy_buffer_to_texture((hxn_handle *)self, (hxn_handle *)texture, (hxn_handle *)buffer, &err), err);
 }
 
+inline void command_list_copy_buffer_to_texture_region(void *self, void *texture, void *buffer, int x, int y, int width, int height) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_copy_buffer_to_texture_region((hxn_handle *)self, (hxn_handle *)texture, (hxn_handle *)buffer, x, y, width, height, &err), err);
+}
+
 inline void command_list_dispatch(void *self, int x, int y, int z) {
 	hxn_buf err = HXN_BUF_EMPTY;
 	hxn::check(hxn_gpu_d3d12_command_list_dispatch((hxn_handle *)self, x, y, z, &err), err);
@@ -341,9 +346,9 @@ inline void command_list_uav_barrier(void *self, void *buffer) {
 	hxn::check(hxn_gpu_d3d12_command_list_uav_barrier((hxn_handle *)self, (hxn_handle *)buffer, &err), err);
 }
 
-inline void command_list_set_render_target(void *self, void *target, double red, double green, double blue, double alpha) {
+inline void command_list_set_render_target(void *self, void *target, bool keep, double red, double green, double blue, double alpha) {
 	hxn_buf err = HXN_BUF_EMPTY;
-	hxn::check(hxn_gpu_d3d12_command_list_set_render_target((hxn_handle *)self, (hxn_handle *)target, red, green, blue, alpha, &err), err);
+	hxn::check(hxn_gpu_d3d12_command_list_set_render_target((hxn_handle *)self, (hxn_handle *)target, keep ? 1 : 0, red, green, blue, alpha, &err), err);
 }
 
 inline void command_list_set_topology(void *self, int topology) {
@@ -351,9 +356,19 @@ inline void command_list_set_topology(void *self, int topology) {
 	hxn::check(hxn_gpu_d3d12_command_list_set_topology((hxn_handle *)self, topology, &err), err);
 }
 
-inline void command_list_set_vertex_buffer(void *self, int slot, void *buffer, int stride) {
+inline void command_list_set_vertex_buffer(void *self, int slot, void *buffer, int stride, cpp::Int64 offset) {
 	hxn_buf err = HXN_BUF_EMPTY;
-	hxn::check(hxn_gpu_d3d12_command_list_set_vertex_buffer((hxn_handle *)self, slot, (hxn_handle *)buffer, stride, &err), err);
+	hxn::check(hxn_gpu_d3d12_command_list_set_vertex_buffer((hxn_handle *)self, slot, (hxn_handle *)buffer, stride, offset, &err), err);
+}
+
+inline void command_list_set_viewport(void *self, double x, double y, double width, double height) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_viewport((hxn_handle *)self, x, y, width, height, &err), err);
+}
+
+inline void command_list_set_scissor(void *self, int x, int y, int width, int height) {
+	hxn_buf err = HXN_BUF_EMPTY;
+	hxn::check(hxn_gpu_d3d12_command_list_set_scissor((hxn_handle *)self, x, y, width, height, &err), err);
 }
 
 inline void command_list_draw(void *self, int count, int instances, int first) {

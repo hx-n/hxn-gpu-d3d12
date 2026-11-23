@@ -104,12 +104,13 @@
     },
     {
       "name": "VertexAttribute",
-      "docs": "One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL\nsemantic `LOC<location>`.",
+      "docs": "One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL\nsemantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.",
       "fields": [
         { "name": "location", "type": "i32" },
         { "name": "slot", "type": "i32" },
         { "name": "format", "type": "Format" },
-        { "name": "offset", "type": "i32" }
+        { "name": "offset", "type": "i32" },
+        { "name": "per_instance", "type": "bool" }
       ]
     },
     {
@@ -529,6 +530,15 @@
           "blocking": false
         },
         {
+          "name": "copy_buffer_to_texture_region",
+          "docs": "Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must\nbe in the copy destination state. Rows in `buffer` are `width` pixels rounded up to\n256 bytes apart.",
+          "kind": "mutating",
+          "params": [{ "name": "texture", "type": "Texture" }, { "name": "buffer", "type": "Buffer" }, { "name": "x", "type": "i32" }, { "name": "y", "type": "i32" }, { "name": "width", "type": "i32" }, { "name": "height", "type": "i32" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
           "name": "dispatch",
           "kind": "mutating",
           "params": [{ "name": "x", "type": "i32" }, { "name": "y", "type": "i32" }, { "name": "z", "type": "i32" }],
@@ -565,9 +575,9 @@
         },
         {
           "name": "set_render_target",
-          "docs": "Renders into `target`, which must be in the render target state, clearing it to\n`red`, `green`, `blue`, `alpha`, and sets the viewport and scissor to all of it.",
+          "docs": "Renders into `target`, which must be in the render target state, clearing it to\n`red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the\nviewport and scissor to all of it.",
           "kind": "mutating",
-          "params": [{ "name": "target", "type": "Texture" }, { "name": "red", "type": "f64" }, { "name": "green", "type": "f64" }, { "name": "blue", "type": "f64" }, { "name": "alpha", "type": "f64" }],
+          "params": [{ "name": "target", "type": "Texture" }, { "name": "keep", "type": "bool" }, { "name": "red", "type": "f64" }, { "name": "green", "type": "f64" }, { "name": "blue", "type": "f64" }, { "name": "alpha", "type": "f64" }],
           "returns": "void",
           "fallible": true,
           "blocking": false
@@ -582,9 +592,27 @@
         },
         {
           "name": "set_vertex_buffer",
-          "docs": "Binds all of `buffer` to input slot `slot`, `stride` bytes per vertex.",
+          "docs": "Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or\ninstance.",
           "kind": "mutating",
-          "params": [{ "name": "slot", "type": "i32" }, { "name": "buffer", "type": "Buffer" }, { "name": "stride", "type": "i32" }],
+          "params": [{ "name": "slot", "type": "i32" }, { "name": "buffer", "type": "Buffer" }, { "name": "stride", "type": "i32" }, { "name": "offset", "type": "i64" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_viewport",
+          "docs": "Maps clip space onto the `width` by `height` pixels at `x`, `y` of the target.",
+          "kind": "mutating",
+          "params": [{ "name": "x", "type": "f64" }, { "name": "y", "type": "f64" }, { "name": "width", "type": "f64" }, { "name": "height", "type": "f64" }],
+          "returns": "void",
+          "fallible": true,
+          "blocking": false
+        },
+        {
+          "name": "set_scissor",
+          "docs": "Draws only inside the `width` by `height` pixels at `x`, `y` of the target.",
+          "kind": "mutating",
+          "params": [{ "name": "x", "type": "i32" }, { "name": "y", "type": "i32" }, { "name": "width", "type": "i32" }, { "name": "height", "type": "i32" }],
           "returns": "void",
           "fallible": true,
           "blocking": false

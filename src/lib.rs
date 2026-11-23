@@ -256,13 +256,14 @@ pub enum Layout {
 }
 
 /// One vertex attribute: `location` is the shader's (hxnsl's `INPUT_<name>`), its HLSL
-/// semantic `LOC<location>`.
+/// semantic `LOC<location>`. With `per_instance`, its input slot advances once per instance.
 #[hxn::data]
 pub struct VertexAttribute {
     pub location: i32,
     pub slot: i32,
     pub format: Format,
     pub offset: i32,
+    pub per_instance: bool,
 }
 
 #[hxn::data]
@@ -708,8 +709,12 @@ impl Device {
                     Format: a.format.raw(),
                     InputSlot: u32_of(a.slot, "an input slot")?,
                     AlignedByteOffset: u32_of(a.offset, "an offset")?,
-                    InputSlotClass: D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA,
-                    InstanceDataStepRate: 0,
+                    InputSlotClass: if a.per_instance {
+                        D3D12_INPUT_CLASSIFICATION_PER_INSTANCE_DATA
+                    } else {
+                        D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA
+                    },
+                    InstanceDataStepRate: u32::from(a.per_instance),
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
@@ -1450,6 +1455,64 @@ impl CommandList {
         Ok(())
     }
 
+    /// Copies `buffer` into the `width` by `height` pixels at `x`, `y` of `texture`, which must
+    /// be in the copy destination state. Rows in `buffer` are `width` pixels rounded up to
+    /// 256 bytes apart.
+    #[allow(clippy::too_many_arguments)]
+    pub fn copy_buffer_to_texture_region(
+        &mut self,
+        texture: &Texture,
+        buffer: &Buffer,
+        x: i32,
+        y: i32,
+        width: i32,
+        height: i32,
+    ) -> Result<(), String> {
+        let list = self.recording()?;
+        let (x, y) = (u32_of(x, "x")?, u32_of(y, "y")?);
+        let (width, height) = (u32_of(width, "a width")?, u32_of(height, "a height")?);
+        if x + width > texture.width || y + height > texture.height {
+            return Err(format!(
+                "a {width}x{height} region at {x}, {y} goes past the edge of the texture"
+            ));
+        }
+        let pitch = (width * texture.format.bytes_per_pixel())
+            .div_ceil(D3D12_TEXTURE_DATA_PITCH_ALIGNMENT)
+            * D3D12_TEXTURE_DATA_PITCH_ALIGNMENT;
+        let needed = pitch as usize * height as usize;
+        if buffer.size < needed {
+            return Err(format!(
+                "the buffer holds {} bytes and the region needs {needed}",
+                buffer.size
+            ));
+        }
+        let destination = D3D12_TEXTURE_COPY_LOCATION {
+            pResource: unsafe { std::mem::transmute_copy(&texture.resource.0) },
+            Type: D3D12_TEXTURE_COPY_TYPE_SUBRESOURCE_INDEX,
+            Anonymous: D3D12_TEXTURE_COPY_LOCATION_0 {
+                SubresourceIndex: 0,
+            },
+        };
+        let source = D3D12_TEXTURE_COPY_LOCATION {
+            pResource: unsafe { std::mem::transmute_copy(&buffer.resource.0) },
+            Type: D3D12_TEXTURE_COPY_TYPE_PLACED_FOOTPRINT,
+            Anonymous: D3D12_TEXTURE_COPY_LOCATION_0 {
+                PlacedFootprint: D3D12_PLACED_SUBRESOURCE_FOOTPRINT {
+                    Offset: 0,
+                    Footprint: D3D12_SUBRESOURCE_FOOTPRINT {
+                        Format: texture.format.raw(),
+                        Width: width,
+                        Height: height,
+                        Depth: 1,
+                        RowPitch: pitch,
+                    },
+                },
+            },
+        };
+        unsafe { list.CopyTextureRegion(&destination, x, y, 0, &source, None) };
+        Ok(())
+    }
+
     pub fn dispatch(&mut self, x: i32, y: i32, z: i32) -> Result<(), String> {
         let list = self.recording()?;
         unsafe {
@@ -1499,10 +1562,12 @@ impl CommandList {
     }
 
     /// Renders into `target`, which must be in the render target state, clearing it to
-    /// `red`, `green`, `blue`, `alpha`, and sets the viewport and scissor to all of it.
+    /// `red`, `green`, `blue`, `alpha` or with `keep` drawing over what it holds, and sets the
+    /// viewport and scissor to all of it.
     pub fn set_render_target(
         &mut self,
         target: &Texture,
+        keep: bool,
         red: f64,
         green: f64,
         blue: f64,
@@ -1517,7 +1582,9 @@ impl CommandList {
         let color = [red as f32, green as f32, blue as f32, alpha as f32];
         unsafe {
             list.OMSetRenderTargets(1, Some(&handle), false, None);
-            list.ClearRenderTargetView(handle, &color, None);
+            if !keep {
+                list.ClearRenderTargetView(handle, &color, None);
+            }
             list.RSSetViewports(&[D3D12_VIEWPORT {
                 TopLeftX: 0.0,
                 TopLeftY: 0.0,
@@ -1549,20 +1616,56 @@ impl CommandList {
         Ok(())
     }
 
-    /// Binds all of `buffer` to input slot `slot`, `stride` bytes per vertex.
+    /// Binds `buffer` from `offset` bytes in to input slot `slot`, `stride` bytes per vertex or
+    /// instance.
     pub fn set_vertex_buffer(
         &mut self,
         slot: i32,
         buffer: &Buffer,
         stride: i32,
+        offset: i64,
     ) -> Result<(), String> {
         let list = self.recording()?;
+        let offset = usize::try_from(offset)
+            .ok()
+            .filter(|o| *o < buffer.size)
+            .ok_or_else(|| format!("offset {offset} is outside the buffer"))?;
         let view = D3D12_VERTEX_BUFFER_VIEW {
-            BufferLocation: unsafe { buffer.resource.0.GetGPUVirtualAddress() },
-            SizeInBytes: buffer.size as u32,
+            BufferLocation: unsafe { buffer.resource.0.GetGPUVirtualAddress() } + offset as u64,
+            SizeInBytes: (buffer.size - offset) as u32,
             StrideInBytes: u32_of(stride, "a stride")?,
         };
         unsafe { list.IASetVertexBuffers(u32_of(slot, "an input slot")?, Some(&[view])) };
+        Ok(())
+    }
+
+    /// Maps clip space onto the `width` by `height` pixels at `x`, `y` of the target.
+    pub fn set_viewport(&mut self, x: f64, y: f64, width: f64, height: f64) -> Result<(), String> {
+        let list = self.recording()?;
+        unsafe {
+            list.RSSetViewports(&[D3D12_VIEWPORT {
+                TopLeftX: x as f32,
+                TopLeftY: y as f32,
+                Width: width as f32,
+                Height: height as f32,
+                MinDepth: 0.0,
+                MaxDepth: 1.0,
+            }])
+        };
+        Ok(())
+    }
+
+    /// Draws only inside the `width` by `height` pixels at `x`, `y` of the target.
+    pub fn set_scissor(&mut self, x: i32, y: i32, width: i32, height: i32) -> Result<(), String> {
+        let list = self.recording()?;
+        unsafe {
+            list.RSSetScissorRects(&[RECT {
+                left: x,
+                top: y,
+                right: x + width,
+                bottom: y + height,
+            }])
+        };
         Ok(())
     }
 
