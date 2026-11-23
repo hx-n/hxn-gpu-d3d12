@@ -111,6 +111,19 @@
         { "name": "format", "type": "Format" },
         { "name": "offset", "type": "i32" }
       ]
+    },
+    {
+      "name": "Blend",
+      "docs": "How a pipeline blends what it draws into its target. The factors are hxn-gpu's shared\ncodes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations from 0 `Add` to 4 `Max`.\nWith `enabled` false, the pipeline writes its color as it is.",
+      "fields": [
+        { "name": "enabled", "type": "bool" },
+        { "name": "color_operation", "type": "i32" },
+        { "name": "color_source", "type": "i32" },
+        { "name": "color_destination", "type": "i32" },
+        { "name": "alpha_operation", "type": "i32" },
+        { "name": "alpha_source", "type": "i32" },
+        { "name": "alpha_destination", "type": "i32" }
+      ]
     }
   ],
   "interfaces": [
@@ -224,9 +237,9 @@
         },
         {
           "name": "create_graphics_pipeline",
-          "docs": "A graphics pipeline state rendering into one target of `format`, with no blending, no\nculling and no depth.",
+          "docs": "A graphics pipeline state rendering into one target of `format`, blending as `blend`\ndescribes, with no culling and no depth.",
           "kind": "method",
-          "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "format", "type": "Format" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }],
+          "params": [{ "name": "vertex", "type": "bytes" }, { "name": "pixel", "type": "bytes" }, { "name": "signature", "type": "RootSignature" }, { "name": "format", "type": "Format" }, { "name": "topology", "type": "Topology" }, { "name": "attributes", "type": "list<VertexAttribute>" }, { "name": "blend", "type": "Blend" }],
           "returns": "PipelineState",
           "fallible": true,
           "blocking": false

@@ -285,7 +285,6 @@ impl Topology {
     }
 }
 
-/// The DXGI factory: the adapters, WARP included.
 /// How a pipeline blends what it draws into its target. The factors are hxn-gpu's shared
 /// codes, from 0 `Zero` to 10 `SrcAlphaSaturated`, and the operations from 0 `Add` to 4 `Max`.
 /// With `enabled` false, the pipeline writes its color as it is.
@@ -331,6 +330,7 @@ fn blend_operation(code: i32, what: &str) -> Result<D3D12_BLEND_OP, String> {
     })
 }
 
+/// The DXGI factory: the adapters, WARP included.
 #[hxn::interface]
 pub struct Factory {
     factory: Shared<IDXGIFactory4>,

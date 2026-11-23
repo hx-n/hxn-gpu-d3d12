@@ -45,7 +45,7 @@ package hxn.gpu.d3d12;
 	static function device_compile(self:hxn.Handle, source:String, entry:String, profile:String):haxe.io.Bytes;
 	static function device_create_root_signature(self:hxn.Handle, parameters:haxe.io.Bytes):hxn.Handle;
 	static function device_create_compute_pipeline(self:hxn.Handle, bytecode:haxe.io.Bytes, signature:hxn.Handle):hxn.Handle;
-	static function device_create_graphics_pipeline(self:hxn.Handle, vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:hxn.Handle, format:Int, topology:Int, attributes:haxe.io.Bytes):hxn.Handle;
+	static function device_create_graphics_pipeline(self:hxn.Handle, vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:hxn.Handle, format:Int, topology:Int, attributes:haxe.io.Bytes, blend:haxe.io.Bytes):hxn.Handle;
 	static function device_create_descriptor_heap(self:hxn.Handle, kind:Int, count:Int):hxn.Handle;
 	static function device_supports_enhanced_barriers(self:hxn.Handle):Bool;
 	static function device_create_command_list(self:hxn.Handle):hxn.Handle;

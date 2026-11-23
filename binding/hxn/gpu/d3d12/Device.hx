@@ -66,10 +66,10 @@ class Device {
 		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_compute_pipeline(hxnRaw, bytecode, signature == null ? null : signature.hxnRaw));
 
 	/**
-		A graphics pipeline state rendering into one target of `format`, with no blending, no
-		culling and no depth.
+		A graphics pipeline state rendering into one target of `format`, blending as `blend`
+		describes, with no culling and no depth.
 	**/
-	public function createGraphicsPipeline(vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:RootSignature, format:Format, topology:Topology, attributes:Array<VertexAttribute>):PipelineState {
+	public function createGraphicsPipeline(vertex:haxe.io.Bytes, pixel:haxe.io.Bytes, signature:RootSignature, format:Format, topology:Topology, attributes:Array<VertexAttribute>, blend:Blend):PipelineState {
 		var attributesOut = new haxe.io.BytesBuffer();
 		if (attributes == null)
 			throw new haxe.Exception("null where a list is needed");
@@ -80,7 +80,12 @@ class Device {
 			item0.hxnWrite(attributesOut);
 		}
 		var attributesBytes = attributesOut.getBytes();
-		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_graphics_pipeline(hxnRaw, vertex, pixel, signature == null ? null : signature.hxnRaw, format, topology, attributesBytes));
+		var blendOut = new haxe.io.BytesBuffer();
+		if (blend == null)
+			throw new haxe.Exception("null where a Blend is needed");
+		blend.hxnWrite(blendOut);
+		var blendBytes = blendOut.getBytes();
+		return PipelineState.hxnAdopt(HxnGpuD3d12Native.device_create_graphics_pipeline(hxnRaw, vertex, pixel, signature == null ? null : signature.hxnRaw, format, topology, attributesBytes, blendBytes));
 	}
 
 	/** A shader-visible descriptor heap of `count` descriptors: texture views, or samplers. **/
