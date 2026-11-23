@@ -23,7 +23,7 @@ hxn_status hxn_gpu_d3d12_device_create_texture(hxn_handle *self, hxn_slice descr
 hxn_status hxn_gpu_d3d12_device_compile(hxn_handle *self, hxn_slice source, hxn_slice entry, hxn_slice profile, hxn_buf *out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_root_signature(hxn_handle *self, hxn_slice parameters, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_compute_pipeline(hxn_handle *self, hxn_slice bytecode, hxn_handle *signature, hxn_handle **out, hxn_buf *err);
-hxn_status hxn_gpu_d3d12_device_create_graphics_pipeline(hxn_handle *self, hxn_slice vertex, hxn_slice pixel, hxn_handle *signature, int32_t format, int32_t topology, hxn_slice attributes, hxn_handle **out, hxn_buf *err);
+hxn_status hxn_gpu_d3d12_device_create_graphics_pipeline(hxn_handle *self, hxn_slice vertex, hxn_slice pixel, hxn_handle *signature, int32_t format, int32_t topology, hxn_slice attributes, hxn_slice blend, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_descriptor_heap(hxn_handle *self, int32_t kind, int32_t count, hxn_handle **out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_supports_enhanced_barriers(hxn_handle *self, int32_t *out, hxn_buf *err);
 hxn_status hxn_gpu_d3d12_device_create_command_list(hxn_handle *self, hxn_handle **out, hxn_buf *err);

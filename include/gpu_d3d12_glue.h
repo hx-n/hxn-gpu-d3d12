@@ -112,10 +112,10 @@ inline void *device_create_compute_pipeline(void *self, Array<unsigned char> byt
 	return out;
 }
 
-inline void *device_create_graphics_pipeline(void *self, Array<unsigned char> vertex, Array<unsigned char> pixel, void *signature, int format, int topology, Array<unsigned char> attributes) {
+inline void *device_create_graphics_pipeline(void *self, Array<unsigned char> vertex, Array<unsigned char> pixel, void *signature, int format, int topology, Array<unsigned char> attributes, Array<unsigned char> blend) {
 	hxn_handle *out = 0;
 	hxn_buf err = HXN_BUF_EMPTY;
-	hxn::check(hxn_gpu_d3d12_device_create_graphics_pipeline((hxn_handle *)self, hxn::slice(vertex), hxn::slice(pixel), (hxn_handle *)signature, format, topology, hxn::slice(attributes), &out, &err), err);
+	hxn::check(hxn_gpu_d3d12_device_create_graphics_pipeline((hxn_handle *)self, hxn::slice(vertex), hxn::slice(pixel), (hxn_handle *)signature, format, topology, hxn::slice(attributes), hxn::slice(blend), &out, &err), err);
 	return out;
 }
 
